@@ -1,0 +1,3 @@
+Drive test upload from Dẹo.
+Created for Vincent on 2026-03-22.
+Workspace policy: primary drive read-only, secondary drive workspace write-enabled.
