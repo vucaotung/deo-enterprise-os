@@ -87,8 +87,11 @@ Do đó:
 ---
 
 ## Imported nhưng chưa active ở integration layer
-- `apps/api/src/routes/telegram.ts`
 - `apps/web/src/pages/Expenses.tsx`
+
+## Imported và đã active ở integration layer sau bước 26A
+- `apps/api/src/routes/telegram.ts`
+  - đã được mount vào `apps/api/src/index.ts` qua `app.use('/api/telegram', telegramRoutes)`
 
 ---
 
