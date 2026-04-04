@@ -18,6 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 export const Sidebar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const { logout, user } = useAuth();
+  const displayName = user?.username || 'User';
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/' },
@@ -74,12 +75,10 @@ export const Sidebar = () => {
           <div className="border-t border-slate-700 p-4 space-y-2">
             <div className="flex items-center gap-3 px-3 py-2">
               <div className="w-8 h-8 bg-deo-accent rounded-full flex items-center justify-center text-sm font-bold">
-                {user?.name.charAt(0).toUpperCase()}
+                {displayName.charAt(0).toUpperCase()}
               </div>
               {isExpanded && (
-                <span className="text-sm text-slate-300 truncate">
-                  {user?.name}
-                </span>
+                <span className="text-sm text-slate-300 truncate">{displayName}</span>
               )}
             </div>
             <button

@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
 import { DashboardSummary, DashboardCharts } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { Badge } from '@/components/Badge';
@@ -16,7 +14,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
 import { formatCurrency, formatTimeAgo } from '@/lib/utils';
@@ -70,28 +67,30 @@ const KPICard = ({
 export const Dashboard = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
   const [mockSummary] = useState<DashboardSummary>({
-    open_tasks: 24,
-    total_expenses: 15750000,
-    new_leads: 8,
-    agents_online: 5,
-    pending_clarifications: 3,
-    task_trend: 12,
-    expense_trend: -8,
-    lead_trend: 25,
+    taskCount: 24,
+    expenseCount: 12,
+    clientCount: 8,
+    taskCountByStatus: {
+      todo: 18,
+      in_progress: 24,
+      completed: 45,
+      cancelled: 5,
+    },
+    alerts: [],
   });
 
   const [mockCharts] = useState<DashboardCharts>({
     expense_by_category: [
-      { category: 'Tiếp thị', amount: 4500000 },
-      { category: 'Vận hành', amount: 6200000 },
-      { category: 'Nhân sự', amount: 3000000 },
-      { category: 'Khác', amount: 2050000 },
+      { category: 'Marketing', amount: 4500000 },
+      { category: 'Operations', amount: 6200000 },
+      { category: 'Payroll', amount: 3000000 },
+      { category: 'Other', amount: 2050000 },
     ],
     task_status: [
-      { status: 'Hoàn thành', count: 45 },
-      { status: 'Đang làm', count: 24 },
-      { status: 'Chưa làm', count: 18 },
-      { status: 'Bị chặn', count: 5 },
+      { status: 'Completed', count: 45 },
+      { status: 'In Progress', count: 24 },
+      { status: 'To Do', count: 18 },
+      { status: 'Cancelled', count: 5 },
     ],
     recent_activities: [
       {
@@ -115,7 +114,7 @@ export const Dashboard = () => {
       {
         id: '4',
         type: 'agent',
-        description: 'Agent "Phân tích dữ liệu" hoàn thành 3 công việc',
+        description: 'Agent phân tích dữ liệu hoàn thành 3 công việc',
         timestamp: new Date(Date.now() - 5400000).toISOString(),
       },
     ],
@@ -126,38 +125,16 @@ export const Dashboard = () => {
   }, [setPageTitle]);
 
   const COLORS = ['#0ea5e9', '#22c55e', '#eab308', '#f97316'];
+  const totalExpenseAmount = mockCharts.expense_by_category.reduce((sum, item) => sum + item.amount, 0);
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <KPICard
-          icon={<span className="text-2xl">📋</span>}
-          title="Công việc mở"
-          value={mockSummary.open_tasks}
-          trend={mockSummary.task_trend}
-        />
-        <KPICard
-          icon={<span className="text-2xl">💰</span>}
-          title="Tổng chi phí"
-          value={formatCurrency(mockSummary.total_expenses)}
-          trend={mockSummary.expense_trend}
-        />
-        <KPICard
-          icon={<span className="text-2xl">🔥</span>}
-          title="Lead mới"
-          value={mockSummary.new_leads}
-          trend={mockSummary.lead_trend}
-        />
-        <KPICard
-          icon={<span className="text-2xl">⚡</span>}
-          title="Agent online"
-          value={mockSummary.agents_online}
-        />
-        <KPICard
-          icon={<span className="text-2xl">❓</span>}
-          title="Chờ làm rõ"
-          value={mockSummary.pending_clarifications}
-        />
+        <KPICard icon={<span className="text-2xl">📋</span>} title="Công việc mở" value={mockSummary.taskCount} trend={12} />
+        <KPICard icon={<span className="text-2xl">💸</span>} title="Tổng chi phí" value={formatCurrency(totalExpenseAmount)} trend={-8} />
+        <KPICard icon={<span className="text-2xl">👥</span>} title="Khách hàng" value={mockSummary.clientCount} trend={25} />
+        <KPICard icon={<span className="text-2xl">🤖</span>} title="Agent online" value={5} />
+        <KPICard icon={<span className="text-2xl">❓</span>} title="Chờ làm rõ" value={3} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -173,9 +150,7 @@ export const Dashboard = () => {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ category, percent }) =>
-                    `${category} ${(percent * 100).toFixed(0)}%`
-                  }
+                  label={({ category, percent }) => `${category} ${((percent || 0) * 100).toFixed(0)}%`}
                   outerRadius={100}
                   fill="#8884d8"
                   dataKey="amount"
@@ -233,12 +208,8 @@ export const Dashboard = () => {
                       }`}
                     />
                     <div className="flex-1">
-                      <p className="text-sm text-slate-900">
-                        {activity.description}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {formatTimeAgo(activity.timestamp)}
-                      </p>
+                      <p className="text-sm text-slate-900">{activity.description}</p>
+                      <p className="text-xs text-slate-500 mt-1">{formatTimeAgo(activity.timestamp)}</p>
                     </div>
                   </div>
                 ))}
@@ -250,36 +221,22 @@ export const Dashboard = () => {
         <div>
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">
-                Chờ làm rõ
-              </CardTitle>
+              <CardTitle className="text-base">Cần chú ý</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {[
-                  {
-                    agent: 'Agent Phân tích',
-                    question: 'Cần tổng thể chi tiết?',
-                  },
-                  {
-                    agent: 'Agent Email',
-                    question: 'Gửi báo cáo hoặc không?',
-                  },
-                  {
-                    agent: 'Agent CRM',
-                    question: 'Cập nhật trạng thái sale?',
-                  },
-                ].map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg"
-                  >
-                    <p className="text-xs font-medium text-yellow-900 mb-1">
-                      {item.agent}
-                    </p>
-                    <p className="text-sm text-yellow-800">{item.question}</p>
-                  </div>
-                ))}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-700">Task todo</span>
+                  <Badge variant="warning">{mockSummary.taskCountByStatus.todo}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-700">Task in progress</span>
+                  <Badge variant="info">{mockSummary.taskCountByStatus.in_progress}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-700">Task completed</span>
+                  <Badge variant="success">{mockSummary.taskCountByStatus.completed}</Badge>
+                </div>
               </div>
             </CardContent>
           </Card>

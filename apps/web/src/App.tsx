@@ -21,23 +21,29 @@ const queryClient = new QueryClient({
   },
 });
 
+const FullScreenLoader = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="text-center">
+      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-deo-accent mb-4"></div>
+      <p className="text-slate-600">Đang tải...</p>
+    </div>
+  </div>
+);
+
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-deo-accent mb-4"></div>
-          <p className="text-slate-600">Đang tải...</p>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <FullScreenLoader />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
+  return <>{children}</>;
+};
+
+const PublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return <FullScreenLoader />;
+  if (isAuthenticated) return <Navigate to="/" replace />;
 
   return <>{children}</>;
 };
@@ -45,7 +51,14 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        }
+      />
       <Route
         element={
           <PrivateRoute>

@@ -7,8 +7,9 @@ import { useAuth } from '@/hooks/useAuth';
 export const Layout = () => {
   const [pageTitle, setPageTitle] = useState('Bảng điều khiển');
   const [selectedCompany, setSelectedCompany] = useState('All Companies');
-  const [notificationCount, setNotificationCount] = useState(3);
+  const [notificationCount] = useState(3);
   const { user } = useAuth();
+  const displayName = user?.username || 'User';
 
   const companies = [
     { id: '1', name: 'Công ty A' },
@@ -57,9 +58,9 @@ export const Layout = () => {
 
             <button className="flex items-center gap-2 px-3 py-2 text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
               <div className="w-8 h-8 bg-deo-accent rounded-full flex items-center justify-center text-sm font-bold text-white">
-                {user?.name.charAt(0).toUpperCase()}
+                {displayName.charAt(0).toUpperCase()}
               </div>
-              <span className="text-sm font-medium">{user?.name}</span>
+              <span className="text-sm font-medium">{displayName}</span>
               <ChevronDown size={16} />
             </button>
           </div>
