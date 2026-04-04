@@ -1,33 +1,31 @@
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  avatar?: string;
-  role: 'admin' | 'manager' | 'user';
-  company_id: string;
-}
+import type {
+  User as RuntimeUser,
+  Task as RuntimeTask,
+  Expense as RuntimeExpense,
+  Client as RuntimeClient,
+  DashboardSummary as RuntimeDashboardSummary,
+  LoginResponse as RuntimeLoginResponse,
+} from '../types';
+
+/**
+ * Legacy compatibility layer.
+ *
+ * Canonical target for v0.3.0 is: ../types
+ * This file stays temporarily so older imports that resolve to `types/index.ts`
+ * can coexist while the frontend type graph is cleaned up.
+ */
+
+export type User = RuntimeUser;
+export type Task = RuntimeTask;
+export type Expense = RuntimeExpense;
+export type Client = RuntimeClient;
+export type DashboardSummary = RuntimeDashboardSummary;
+export type AuthResponse = RuntimeLoginResponse;
 
 export interface Company {
   id: string;
   name: string;
   logo?: string;
-}
-
-export interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: 'TODO' | 'IN_PROGRESS' | 'BLOCKED' | 'IN_REVIEW' | 'DONE';
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  company_id: string;
-  project_id: string;
-  assigned_to: string;
-  assignee?: User;
-  due_date: string;
-  created_at: string;
-  updated_at: string;
-  has_clarification: boolean;
-  clarification_count: number;
 }
 
 export interface Subtask {
@@ -44,31 +42,6 @@ export interface Project {
   description: string;
   company_id: string;
   status: 'active' | 'inactive' | 'archived';
-  created_at: string;
-}
-
-export interface Expense {
-  id: string;
-  description: string;
-  amount: number;
-  category: string;
-  account: string;
-  user_id: string;
-  user?: User;
-  company_id: string;
-  date: string;
-  created_at: string;
-  receipt_url?: string;
-}
-
-export interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  company: string;
-  company_id: string;
-  avatar?: string;
   created_at: string;
 }
 
@@ -154,17 +127,6 @@ export interface Message {
   created_at: string;
 }
 
-export interface DashboardSummary {
-  open_tasks: number;
-  total_expenses: number;
-  new_leads: number;
-  agents_online: number;
-  pending_clarifications: number;
-  task_trend: number;
-  expense_trend: number;
-  lead_trend: number;
-}
-
 export interface DashboardCharts {
   expense_by_category: Array<{ category: string; amount: number }>;
   task_status: Array<{ status: string; count: number }>;
@@ -174,11 +136,6 @@ export interface DashboardCharts {
     description: string;
     timestamp: string;
   }>;
-}
-
-export interface AuthResponse {
-  token: string;
-  user: User;
 }
 
 export interface PaginatedResponse<T> {
