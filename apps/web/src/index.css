@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-blue: #1e3a5f;
+  --color-accent: #0ea5e9;
+  --color-orange: #f97316;
+  --color-sidebar: #1e293b;
+  --color-bg: #f8fafc;
+  --color-card: #ffffff;
+  --color-text: #0f172a;
+  --color-text-secondary: #64748b;
+  --color-border: #e2e8f0;
+  --color-success: #22c55e;
+  --color-warning: #eab308;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+input, textarea, button, select {
+  font-family: inherit;
+}
+
+input, textarea {
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+textarea {
+  resize: none;
+}
+
+button {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-lg shadow-sm border border-slate-200;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 bg-deo-accent text-white rounded-lg font-medium hover:bg-cyan-600 transition-colors;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-slate-200 text-slate-900 rounded-lg font-medium hover:bg-slate-300 transition-colors;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .badge-warning {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+
+  .badge-error {
+    @apply bg-red-100 text-red-800;
+  }
+
+  .badge-info {
+    @apply bg-blue-100 text-blue-800;
+  }
+
+  .badge-gray {
+    @apply bg-slate-100 text-slate-800;
+  }
+}
