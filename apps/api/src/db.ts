@@ -1,13 +1,12 @@
-import { Pool, PoolConfig } from 'pg';
+import pool from './config/database';
 
-const poolConfig: PoolConfig = {
-  connectionString: process.env.DATABASE_URL || 'postgresql://localhost/deo',
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-};
-
-const pool = new Pool(poolConfig);
+/**
+ * Legacy compatibility layer.
+ *
+ * Canonical target for v0.3.0 is: ./config/database
+ * This file stays temporarily so older routes/services importing `../db`
+ * do not break while the import graph is cleaned up.
+ */
 
 pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
@@ -34,4 +33,5 @@ export async function close() {
   await pool.end();
 }
 
+export { pool };
 export default pool;
