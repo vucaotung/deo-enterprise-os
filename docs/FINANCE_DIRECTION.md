@@ -13,10 +13,13 @@ Từ mốc này, hướng đúng cho khối Finance là:
 - quản lý expense / budget / dòng tiền / đối soát ở mức vận hành doanh nghiệp
 - ưu tiên thiết kế để phục vụ nhiều project, nhiều line vận hành, nhiều thực thể công ty
 
-### Không phải hướng ưu tiên hiện tại
+### Không thuộc phạm vi của OS này
 - personal expense tracker cho một cá nhân
 - flow thu chi cá nhân đơn lẻ
+- quản lý thu chi tài chính cá nhân của sếp
 - expense page chỉ để ghi tiêu vặt cá nhân
+
+**Quy ước chốt:** phần thu chi tài chính cá nhân của sếp sẽ được làm ở hệ/nhánh riêng, không thuộc phạm vi Dẹo Enterprise OS.
 
 ---
 
