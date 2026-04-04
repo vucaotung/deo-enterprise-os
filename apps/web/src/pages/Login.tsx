@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
 export const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -16,10 +16,10 @@ export const Login = () => {
     setIsLoading(true);
 
     try {
-      await login(email, password);
+      await login(username, password);
       navigate('/');
-    } catch (err) {
-      setError('Đăng nhập thất bại. Vui lòng kiểm tra email và mật khẩu.');
+    } catch {
+      setError('Đăng nhập thất bại. Vui lòng kiểm tra username và mật khẩu.');
     } finally {
       setIsLoading(false);
     }
@@ -45,15 +45,15 @@ export const Login = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-900 mb-2">
-                Email
+                Username
               </label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-deo-accent focus:border-transparent transition-all"
-                placeholder="you@example.com"
+                placeholder="admin"
               />
             </div>
 
@@ -81,7 +81,7 @@ export const Login = () => {
           </form>
 
           <p className="text-center text-slate-600 text-sm mt-6">
-            Bản demo - Sử dụng email và mật khẩu bất kỳ
+            Demo login mặc định: admin / admin123
           </p>
         </div>
       </div>
