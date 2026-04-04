@@ -1,35 +1,30 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import { AxiosError } from 'axios';
+import api from '../api/client';
 
-let authToken = localStorage.getItem('auth_token') || '';
+/**
+ * Legacy compatibility layer.
+ *
+ * Canonical target for v0.3.0 is: ../api/client
+ * This file stays temporarily so older auth flow code importing `@/lib/api`
+ * keeps working while the import graph is cleaned up.
+ */
+
+const legacyToken = localStorage.getItem('auth_token');
+const currentToken = localStorage.getItem('token');
+
+if (!currentToken && legacyToken) {
+  localStorage.setItem('token', legacyToken);
+}
 
 export const setAuthToken = (token: string) => {
-  authToken = token;
   localStorage.setItem('auth_token', token);
+  localStorage.setItem('token', token);
 };
 
 export const clearAuthToken = () => {
-  authToken = '';
   localStorage.removeItem('auth_token');
+  localStorage.removeItem('token');
 };
-
-const api: AxiosInstance = axios.create({
-  baseURL: '/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-api.interceptors.request.use(
-  (config) => {
-    if (authToken) {
-      config.headers.Authorization = `Bearer ${authToken}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
 
 api.interceptors.response.use(
   (response) => response,
