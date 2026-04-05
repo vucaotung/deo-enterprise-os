@@ -1,428 +1,200 @@
-# Dẹo Enterprise OS — Business Management Platform
+# Dẹo Enterprise OS
 
-**Version:** 1.0
-**Status:** Production Ready
-**Language:** Vietnamese
-**Repository:** https://github.com/YOUR_USER/deo-enterprise-os
+Work OS định hướng **chat-first + orchestration-first** cho vận hành doanh nghiệp, nơi:
+- **Telegram group** là mặt tiền tự nhiên cho con người
+- **Web app** là lớp quản trị / trực quan / object management
+- **Agent layer** là nơi hiểu ngữ cảnh và quyết định hành động
+- **n8n** là workflow engine + integration fabric để chạy automation có cấu trúc
 
----
-
-## 📋 Overview
-
-Dẹo Enterprise OS là nền tảng quản lý doanh nghiệp kết hợp AI và con người, với giao diện **chat-first** (80% tương tác qua chat, 20% qua webapp visual).
-
-Hệ thống bao gồm:
-- **Backend API**: Express.js + TypeScript (80 endpoints)
-- **Frontend UI**: React + Vite + TailwindCSS (9 trang)
-- **Database**: PostgreSQL 16 (23+ tables)
-- **Cache**: Redis 7
-- **Orchestration**: Agent task queue + worker daemon
-- **Real-time**: WebSocket via Socket.io
+> **Human-native frontstage ở chat/thread, orchestration ở agent layer, structured execution ở workflow/integration layer, và domain truth nằm trong Work OS core.**
 
 ---
 
-## 🎯 Core Features
+## Trạng thái hiện tại
 
-### 📊 Dashboard
-- KPI cards (open tasks, expenses, leads, agents online, pending clarifications)
-- Charts (expense by category, task burn-down, agent activity)
-- Activity feed
+**Current status:** architecture + canonicalization in progress  
+**Repository focus:** làm sạch source-of-truth, giảm drift, khóa architecture trước khi build sâu tiếp
 
-### 💬 Chat Center (3-column)
-- Real-time messaging (Telegram ↔ Webapp sync)
-- Auto-populated context panel (client/task/agent info)
-- Inline clarifications (agent asks, human answers immediately)
-- Rich attachments (images, files)
+Repo hiện có 2 nhánh tư duy lớn đã được chốt tài liệu khá rõ:
 
-### ✅ Task Management
-- Kanban board (5 columns: TODO, IN PROGRESS, BLOCKED, IN REVIEW, DONE)
-- Subtasks support
-- Agent assignment
-- Priority & due dates
-- Activity timeline
+### 1. Web app canonicalization / Project-Task foundation
+- canonicalize contract frontend/backend
+- đưa `Project Management` và `Task Management` về cùng language
+- giảm lệ thuộc mock/demo fallback
+- chuẩn hóa runtime-first direction
 
-### 💰 Finance
-- Expense tracking (VND currency)
-- Categorization with AI auto-classification
-- Receipt upload & OCR
-- Expense summary & reports
-
-### 👥 CRM
-- Lead pipeline (6 stages: NEW, CONTACTED, QUALIFIED, PROPOSAL, WON, LOST)
-- Client management
-- Interaction history
-- Lead scoring
-
-### 🤖 AI Agents Dashboard
-- Agent registry (status, capabilities, performance)
-- Task assignment & monitoring
-- Token budget tracking
-- Clarification inbox
-
-### 📝 Notebooks (Knowledge Base)
-- Markdown notes
-- Entity linking (task, project, client)
-- Version history
-- Search & filtering
-
-### 🔐 Security & Audit
-- JWT authentication (24-hour tokens)
-- Role-based access
-- Audit trail (every action logged)
-- Cloudflare Tunnel for HTTPS
+### 2. Chat / Agent / n8n orchestration stack
+- Telegram group như frontstage tự nhiên
+- thread context model
+- coordinator + specialist model
+- agent domain
+- n8n workflow role
+- workflow registry
+- admin/control plane
+- execution trace
 
 ---
 
-## 🏗️ Architecture
+## Kiến trúc tổng quát
 
-```
-┌─────────────────────────────────────────┐
-│     INTERACTION LAYER                   │
-│  Telegram │ Zalo │ Webapp │ Email       │
-└────────────────┬────────────────────────┘
-                 │ WebSocket / REST
-┌────────────────▼────────────────────────┐
-│     API LAYER (Express + TypeScript)    │
-│  Routes │ Services │ Middleware         │
-└────────────────┬────────────────────────┘
-                 │
-┌────────┬───────▼───────┬─────────────┐
-│        │               │             │
-│   PostgreSQL      Redis         Files
-│  (23 tables)  (Task queue)    (Google Drive)
-│        │               │             │
-└────────┴───────┬───────┴─────────────┘
-                 │
-         ┌───────▼──────────┐
-         │  Worker Daemon   │
-         │  Agent Executor  │
-         └──────────────────┘
+```text
+Human chat / external events
+→ Thread context layer
+→ Agent orchestration layer
+→ Workflow / integration layer (n8n)
+→ Domain objects (projects, tasks, clarifications, notebooks, CRM, finance)
+→ Admin / trace / control plane
 ```
 
-### Database Schema
+### Các tầng chính
 
-**Core Tables:**
-- `users`, `companies`, `staff_assignments`
-- `projects`, `tasks`, `clarifications`, `notebooks`
-- `clients`, `leads`, `interactions`, `quotes`, `contracts`
-- `expenses`, `accounts`, `categories`
-- `agents`, `agent_jobs`, `messages`
-- `command_log`, `ai_usage_log`, `audit_events`
+#### 1) Frontstage
+- Telegram group
+- về sau có thể thêm Zalo / web chat
+- web app views cho project/task/admin
 
-**Key Features:**
-- 2-layer task states (workflow vs execution)
-- Clarification system (agent asks → human answers → resume)
-- Audit trail on every mutation
-- Context engine (auto-gather related data)
+#### 2) Thread / context layer
+- summaries
+- pending actions
+- open questions
+- linked entities
+- current objective
+
+#### 3) Agent layer
+- coordinators
+- specialists
+- watchers
+- bindings
+- invocations
+
+#### 4) Workflow / integration layer
+- n8n workflows
+- external connectors
+- callbacks
+- scheduled jobs
+
+#### 5) Domain object layer
+- projects
+- tasks
+- clarifications
+- notebooks
+- CRM
+- finance
+
+#### 6) Control plane
+- Agent Admin
+- workflow registry
+- execution traces
+- retry / cancel / inspect
 
 ---
 
-## 📁 Project Structure
+## Core principles
 
-```
-deo-enterprise-os/
-├── apps/
-│   ├── api/                 # Backend (Express + TypeScript)
-│   │   ├── src/
-│   │   │   ├── routes/      # 13 route files (80+ endpoints)
-│   │   │   ├── services/    # Business logic (event, context)
-│   │   │   ├── middleware/  # Auth, validate, audit
-│   │   │   ├── types/       # TypeScript interfaces
-│   │   │   ├── db.ts        # PostgreSQL connection
-│   │   │   ├── redis.ts     # Redis client
-│   │   │   ├── index.ts     # Express server
-│   │   │   └── worker.ts    # Background job worker
-│   │   ├── Dockerfile
-│   │   └── package.json
-│   │
-│   └── web/                 # Frontend (React + Vite)
-│       ├── src/
-│       │   ├── pages/       # 9 main pages
-│       │   ├── components/  # Reusable UI components
-│       │   ├── hooks/       # Auth, chat, context
-│       │   ├── lib/         # API, Socket.io, utils
-│       │   ├── types/       # TypeScript interfaces
-│       │   ├── App.tsx      # Router setup
-│       │   └── main.tsx     # React entry point
-│       ├── Dockerfile
-│       ├── vite.config.ts
-│       └── tailwind.config.js
-│
-├── infrastructure/
-│   ├── postgres/            # SQL migrations (5 files)
-│   │   ├── 001_init.sql
-│   │   ├── 002_deo_schema.sql
-│   │   ├── 003_deo_v4_update.sql
-│   │   ├── 004_many_to_many.sql
-│   │   └── 005_orchestration_upgrade.sql
-│   └── nginx/
-│       └── default.conf     # Reverse proxy config
-│
-├── scripts/
-│   ├── deploy.sh            # Deploy to VPS
-│   ├── setup-vps.sh         # Initial VPS setup
-│   ├── backup.sh            # Database backup
-│   └── health-check.sh      # Service monitoring
-│
-├── docs/
-│   ├── DEPLOYMENT_GUIDE_VN.md       # Full deployment guide (Vietnamese)
-│   ├── QUICK_START_CHECKLIST.txt    # Quick checklist
-│   └── ARCHITECTURE.md              # Detailed architecture
-│
-├── docker-compose.prod.yml          # Production docker-compose
-├── .env.example                     # Environment variables template
-└── README.md                        # This file
+- **Telegram-first, không ép user bỏ công cụ quen thuộc**
+- **Project = khung quản trị, Task = đơn vị thực thi**
+- **Agent là actor thực thi có ngữ cảnh, không chỉ là chatbot avatar**
+- **Truth ở OS, flow ở n8n**
+- **Workflow phải đi qua registry, không gọi ad-hoc**
+- **Execution trace là hạ tầng bắt buộc, không phải đồ debug phụ**
+- **Runtime-first với fallback tạm thời, nhưng không lấy fallback làm source-of-truth**
+
+---
+
+## Tài liệu quan trọng nên đọc trước
+
+### Web / product / canonicalization
+- `docs/WEB_APP_CANONICALIZATION_PLAN.md`
+- `docs/PROJECT_MANAGEMENT_DOMAIN_V1.md`
+- `docs/PROJECT_MANAGEMENT_WEB_STRUCTURE.md`
+- `docs/PROJECT_TASK_CANONICAL_UPDATE_2026-04-05.md`
+
+### Chat / orchestration
+- `docs/TELEGRAM_GROUP_AS_WORK_OS_V1.md`
+- `docs/THREAD_CONTEXT_AND_AGENT_INVOCATION_MODEL.md`
+- `docs/TELEGRAM_GROUP_TO_PROJECT_TASK_MAPPING.md`
+- `docs/LOW_TOKEN_CHAT_ORCHESTRATION_STRATEGY.md`
+- `docs/CHAT_THREAD_DATA_MODEL_V1.md`
+- `docs/CHAT_ORCHESTRATION_API_V1.md`
+- `docs/CHAT_V1_IMPLEMENTATION_PLAN.md`
+- `docs/ORCHESTRATION_STACK_V1.md`
+
+### Agent / n8n / control plane
+- `docs/AGENT_DOMAIN_V1.md`
+- `docs/N8N_ROLE_IN_ENTERPRISE_OS.md`
+- `docs/AGENT_TO_N8N_EXECUTION_PATTERN.md`
+- `docs/N8N_WORKFLOW_REGISTRY_V1.md`
+- `docs/AGENT_ADMIN_MODEL_V1.md`
+- `docs/AGENT_RUN_AND_CALLBACK_TRACE_MODEL.md`
+- `docs/AGENT_V1_IMPLEMENTATION_PLAN.md`
+- `docs/N8N_INTEGRATION_IMPLEMENTATION_PLAN.md`
+
+---
+
+## Repo structure
+
+```text
+apps/
+  api/        Express + TypeScript backend
+  web/        React + Vite frontend
+
+docs/         Product, architecture, implementation planning
+infrastructure/
+  postgres/   SQL migrations
+scripts/      Deploy / backup / health check helpers
 ```
 
 ---
 
-## 🚀 Quick Start
+## Hiện tại build gì trước?
 
-### Prerequisites
-- Node.js 18+
-- Docker & Docker Compose
-- PostgreSQL 16 (or use Docker)
-- Redis 7 (or use Docker)
-
-### Local Development
-
-```bash
-# 1. Clone
-git clone https://github.com/YOUR_USER/deo-enterprise-os.git
-cd deo-enterprise-os
-
-# 2. Setup backend
-cd apps/api
-npm install
-npm run dev  # Runs on http://localhost:3001
-
-# 3. Setup frontend (new terminal)
-cd apps/web
-npm install
-npm run dev  # Runs on http://localhost:5173
-
-# 4. Start database (Docker)
-docker compose -f ../../docker-compose.yml up postgres redis
-```
-
-### VPS Deployment
-
-**For detailed step-by-step guide, see:** `DEPLOYMENT_GUIDE_VN.md`
-
-Quick version:
-
-```bash
-# 1. SSH into VPS
-ssh root@173.249.51.69
-
-# 2. Clone & config
-git clone <your-repo> /opt/deo-enterprise-os
-cd /opt/deo-enterprise-os
-cp .env.example .env
-nano .env  # Fill in passwords + Cloudflare token
-
-# 3. Deploy
-bash scripts/deploy.sh
-
-# 4. Access
-https://dash.enterpriseos.bond
-```
+### Near-term priorities
+1. tiếp tục cleanup contract frontend/backend
+2. giữ source-of-truth rõ giữa repo và production
+3. hoàn tất canonical task/project direction
+4. khi quay lại orchestration: build theo implementation plans đã chốt
 
 ---
 
-## 🔌 API Endpoints (80 total)
+## Roadmap ngắn gọn
 
-### Authentication
-```
-POST   /api/auth/login          → JWT token
-GET    /api/auth/me             → Current user
-```
+### Now
+- contract cleanup
+- production drift reduction
+- web app canonicalization
+- architecture locking
 
-### Dashboard
-```
-GET    /api/dashboard/summary   → KPI stats
-GET    /api/dashboard/charts    → Chart data
-```
+### Next
+- agent V1 foundations
+- n8n integration foundations
+- workflow registry + callback traces
+- Telegram/thread ingest foundations
 
-### Tasks
-```
-GET    /api/tasks               → List tasks
-POST   /api/tasks               → Create task
-GET    /api/tasks/:id           → Get detail
-PATCH  /api/tasks/:id           → Update
-DELETE /api/tasks/:id           → Delete
-POST   /api/tasks/:id/pick      → Agent picks task
-POST   /api/tasks/:id/progress  → Report progress
-POST   /api/tasks/:id/complete  → Mark complete
-POST   /api/tasks/:id/fail      → Report failure
-POST   /api/tasks/:id/request-review → Request review
-```
-
-### Expenses
-```
-GET    /api/expenses            → List
-POST   /api/expenses            → Create
-PATCH  /api/expenses/:id        → Update
-GET    /api/expenses/summary    → Stats
-```
-
-### Clients, Leads, Contacts
-```
-GET/POST/PATCH   /api/clients
-GET/POST/PATCH   /api/leads
-GET/POST         /api/interactions
-```
-
-### AI Agents
-```
-POST   /api/agents/register     → Register agent
-POST   /api/agents/:id/heartbeat → Keep-alive signal
-GET    /api/agents              → List all agents
-GET    /api/agents/:id          → Agent detail
-PATCH  /api/agents/:id          → Update config
-GET    /api/agents/:id/pull     → Poll for new tasks
-```
-
-### Clarifications
-```
-GET    /api/clarifications      → List open questions
-POST   /api/clarifications      → Create question
-PATCH  /api/clarifications/:id  → Answer question
-GET    /api/clarifications/pending → For dashboard widget
-```
-
-### Notebooks & Conversations
-```
-GET/POST/PATCH   /api/notebooks
-GET/POST         /api/conversations/:id/messages
-GET              /api/conversations/:id/context
-```
-
-### Audit Trail
-```
-GET    /api/audit?entity_type=&entity_id= → All changes
-```
-
-**Full API documentation:** [See backend README](apps/api/README.md)
+### Later
+- coordinator/specalist flows usable end-to-end
+- admin/control plane usable
+- deeper CRM/finance/notebook integration
 
 ---
 
-## 🗄️ Database
+## Deployment
 
-### Schema: `deo.*`
-
-23 tables covering:
-- **User Management**: users, companies, staff_assignments
-- **Work**: projects, tasks, clarifications, notebooks, agent_jobs
-- **CRM**: clients, leads, interactions, contracts, quotes
-- **Finance**: expenses, accounts, categories
-- **AI**: agents, messages, conversations
-- **System**: audit_events, command_log, ai_usage_log, reminders
-
-### Migrations
-
-Run in order:
-1. `001_init.sql` — Create database
-2. `002_deo_schema.sql` — Core tables (23 tables, seed data)
-3. `003_deo_v4_update.sql` — Companies & extended features
-4. `004_many_to_many.sql` — Business lines, agent assignments
-5. `005_orchestration_upgrade.sql` — Agent orchestration tables
-
-**Auto-migrate on deploy:** `deploy.sh` runs all migrations
+- Xem: `DEPLOYMENT_GUIDE_VN.md`
+- Lưu ý thực tế hiện tại: môi trường VPS đang được cập nhật theo hướng **archive/scp/rsync/deploy**, vì thư mục production hiện không mặc định là git working copy sạch để `git pull` trực tiếp.
 
 ---
 
-## 🔐 Security
+## Ghi chú quan trọng
 
-- **JWT Auth**: 24-hour tokens, stored in localStorage
-- **CORS**: Configured per environment
-- **SQL Injection**: Parameterized queries ($1, $2 notation)
-- **XSS Protection**: No innerHTML, safe React rendering
-- **HTTPS**: Cloudflare Tunnel + SSL certificates
-- **Rate Limiting**: Nginx config (30 req/s API, 5 req/min login)
-- **Audit Trail**: Every action logged with actor, timestamp, changes
-- **Password**: Hashed with bcryptjs
+README này phản ánh **direction hiện tại của repo**, không cố giả vờ mọi module đã production-ready hoàn chỉnh.  
+Một phần lớn repo hiện ở trạng thái **architecture locked / implementation staged**, và các docs trong `docs/` là source-of-truth quan trọng để quay lại build không bị lệch.
 
 ---
 
-## 📞 Support & Contact
-
-**Author:** Tung Vu Ca
-**Email:** vucaotung@gmail.com
-**Domain:** enterpriseos.bond
-
-For issues, questions, or feature requests, contact via email.
-
----
-
-## 📄 License
+## License
 
 Private / Proprietary
 
 ---
 
-## 🎯 Roadmap
-
-### Phase 1 (Current)
-- ✅ Core API & database
-- ✅ React dashboard & chat
-- ✅ Docker containerization
-- ✅ Cloudflare Tunnel deployment
-
-### Phase 2 (Next)
-- OpenClaw agent integration
-- Telegram bot sync
-- n8n automation workflows
-- Email notifications
-
-### Phase 3 (Future)
-- Mobile app (React Native)
-- Multi-language support
-- Advanced reporting & analytics
-- Machine learning for expense classification
-- Zalo OA integration
-
----
-
-## 📊 Tech Stack
-
-**Backend:**
-- Node.js 18+
-- Express.js 4.x
-- TypeScript 5.x
-- PostgreSQL 16
-- Redis 7
-- Socket.io 4.x
-
-**Frontend:**
-- React 18
-- TypeScript 5.x
-- Vite 4.x
-- TailwindCSS 3.x
-- React Router 6
-- React Query (TanStack)
-- Recharts (charts)
-- Lucide React (icons)
-
-**DevOps:**
-- Docker & Docker Compose
-- Nginx 1.27
-- Cloudflare Tunnel
-- GitHub Actions (CI/CD ready)
-
-**Total LOC:** 7,813 lines of code (backend + frontend)
-
----
-
-## 🙏 Acknowledgments
-
-Architecture inspired by:
-- **ClawTask** — Clarification system, 2-layer task states, agent heartbeat
-- **Viet-ERP** — Package structure, audit logging, event-driven design
-- **OpenClaw** — Agent orchestration patterns
-
----
-
-**Last Updated:** April 3, 2026
-**Ready for Production Deployment**
-
+**Last updated:** 2026-04-05

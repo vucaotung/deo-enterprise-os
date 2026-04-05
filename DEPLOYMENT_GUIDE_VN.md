@@ -1,388 +1,254 @@
-# Dẹo Enterprise OS — Hướng dẫn triển khai lên VPS Contabo
+# Dẹo Enterprise OS — Hướng dẫn triển khai / cập nhật production
 
-## 📋 Thông tin VPS của bạn
-
-| Thông tin | Giá trị |
-|-----------|--------|
-| **IP Address** | 173.249.51.69 |
-| **Server Type** | Cloud VPS 10 SSD (no setup) |
-| **Location** | Hub Europe |
-| **Username** | root |
-| **OS** | Ubuntu 22.04 / 24.04 |
-| **IPv6 Subnet** | 2a02:c207:2320:2129:0000:0000:0000:0001/64 |
+**Ngữ cảnh hiện tại:** repo đang trong giai đoạn canonicalization + architecture locking.  
+Vì vậy tài liệu deploy này ưu tiên phản ánh **thực tế vận hành hiện tại** thay vì mô tả một flow quá lý tưởng.
 
 ---
 
-## 🔧 Phase 1: Chuẩn bị VPS (15 phút)
+## 1. Mục tiêu của guide này
 
-### Bước 1: SSH vào VPS
+Guide này dùng cho 2 việc chính:
+1. dựng môi trường production lần đầu trên VPS
+2. cập nhật code mới từ máy local lên production theo flow đang dùng thật
 
-Mở terminal trên máy tính và chạy:
+---
 
+## 2. Thực tế triển khai hiện tại
+
+Hiện tại production deploy thực tế đang ưu tiên flow:
+
+**local archive → scp → extract trên VPS → rsync vào thư mục app → docker compose build/up**
+
+### Lý do
+Thư mục production trên VPS không phải lúc nào cũng là git working copy sạch để `git pull` trực tiếp.
+
+### Hệ quả
+- không nên mặc định tài liệu bằng `git pull`
+- phải cẩn thận giữ `.env` trên VPS
+- update code nên tách với update secrets/config
+
+---
+
+## 3. Yêu cầu tối thiểu
+
+### Trên local
+- có source code repo mới nhất
+- có `tar` / PowerShell Compress-Archive hoặc tương đương
+- có `scp`
+- có quyền SSH vào VPS
+
+### Trên VPS
+- Docker + Docker Compose hoạt động
+- thư mục app tồn tại, ví dụ: `/opt/deo-enterprise-os`
+- file `.env` production đã cấu hình sẵn
+
+---
+
+## 4. First-time VPS setup (nếu máy mới hoàn toàn)
+
+### SSH vào VPS
 ```bash
-ssh root@173.249.51.69
+ssh root@<YOUR_VPS_IP>
 ```
 
-Nhập password của bạn khi được hỏi.
-
-### Bước 2: Update hệ thống
-
+### Update hệ thống
 ```bash
 apt update && apt upgrade -y
 ```
 
-### Bước 3: Cài Docker
-
+### Cài Docker
 ```bash
 curl -fsSL https://get.docker.com | sh
-```
-
-```bash
 systemctl enable docker && systemctl start docker
 ```
 
-Kiểm tra:
-
-```bash
-docker version
-```
-
-### Bước 4: Tạo thư mục ứng dụng
-
+### Tạo thư mục app
 ```bash
 mkdir -p /opt/deo-enterprise-os
+```
+
+### Chuẩn bị `.env`
+```bash
 cd /opt/deo-enterprise-os
-```
-
----
-
-## 📦 Phase 2: Clone & Cấu hình (10 phút)
-
-### Bước 1: Clone project từ GitHub
-
-**(Thay YOUR_USER bằng username GitHub của bạn)**
-
-```bash
-git clone https://github.com/YOUR_USER/deo-enterprise-os.git .
-```
-
-Hoặc nếu chưa push GitHub, copy từ máy local:
-
-```bash
-# Trên máy local:
-scp -r deo-enterprise-os root@173.249.51.69:/opt/
-
-# Hoặc:
-cd deo-enterprise-os
-tar -czf deo.tar.gz apps infrastructure scripts docker-compose.prod.yml .env.example .gitignore
-scp deo.tar.gz root@173.249.51.69:/opt/
-# Trên VPS:
-cd /opt && tar -xzf deo.tar.gz
-```
-
-### Bước 2: Tạo file .env
-
-```bash
 cp .env.example .env
 nano .env
 ```
 
-Điền các giá trị sau:
-
-| Key | Value | Ví dụ |
-|-----|-------|-------|
-| **POSTGRES_PASSWORD** | Mật khẩu mạnh (tối thiểu 16 ký tự) | `MySecurePass123!@#$` |
-| **JWT_SECRET** | 64 ký tự ngẫu nhiên | `openssl rand -hex 32` |
-| **TUNNEL_TOKEN** | Sẽ lấy từ Cloudflare Tunnel (bước sau) | `eyJhIjoiY2QwMzU0ZjRkZjQ3ZGE2MDdjNDk4YWY4...` |
-
-#### Tạo JWT_SECRET trên VPS:
-
-```bash
-openssl rand -hex 32
-# Output: a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6...
-```
-
-Copy output vào `JWT_SECRET=...` trong .env
-
-#### Ví dụ file .env:
-
-```
-POSTGRES_DB=deo_os
-POSTGRES_USER=deo
-POSTGRES_PASSWORD=MySecurePass123!@#$
-JWT_SECRET=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6
-TUNNEL_TOKEN=eyJhIjoiY2QwMzU0ZjRkZjQ3ZGE2MDdjNDk4YWY4YzBjZjM4NDUwIiwiYSI6ImhvcWzp6CjRQQSJ9
-CORS_ORIGIN=https://dash.enterpriseos.bond
-DOMAIN=enterpriseos.bond
-```
-
-#### Lưu file:
-
-Bấm `Ctrl+X` → `Y` → `Enter`
+> Không commit `.env` vào repo.  
+> Khi sync code, phải giữ nguyên `.env` trên VPS.
 
 ---
 
-## 🚀 Phase 3: Deploy (5 phút)
+## 5. Flow cập nhật production hiện đang dùng
 
-### Bước 1: Chạy deploy script
+## Bước 1 — Tạo archive từ local
+Ví dụ trên local:
 
 ```bash
-bash scripts/deploy.sh
+tar -czf deo-enterprise-os.tar.gz \
+  apps \
+  docs \
+  infrastructure \
+  packages \
+  scripts \
+  docker-compose.prod.yml \
+  .env.example \
+  README.md \
+  ROADMAP_NEXT.md \
+  DEPLOYMENT_GUIDE_VN.md
 ```
 
-Script sẽ:
-- ✅ Chạy migrations SQL
-- ✅ Build containers
-- ✅ Start 7 services
-- ✅ Verify health checks
+> Có thể thêm/bớt file tùy đợt cập nhật.  
+> Mục tiêu là đóng gói code + docs cần deploy, không kéo theo file rác local.
 
-Chờ khi nó hiển thị "✅ Deploy complete!"
+## Bước 2 — Upload lên VPS
+```bash
+scp deo-enterprise-os.tar.gz root@<YOUR_VPS_IP>:/opt/
+```
 
-### Bước 2: Kiểm tra status
+## Bước 3 — Extract trên VPS
+```bash
+ssh root@<YOUR_VPS_IP>
+cd /opt
+mkdir -p deo-enterprise-os-upload
+cd deo-enterprise-os-upload
+tar -xzf ../deo-enterprise-os.tar.gz
+```
 
+## Bước 4 — Sync vào thư mục production
+```bash
+rsync -av --delete \
+  --exclude '.env' \
+  /opt/deo-enterprise-os-upload/ /opt/deo-enterprise-os/
+```
+
+### Cực kỳ quan trọng
+- `--exclude '.env'` để không đè config production
+- nếu có file/secrets local khác không được phép sync, phải exclude thêm
+
+## Bước 5 — Build và chạy lại services
+```bash
+cd /opt/deo-enterprise-os
+docker compose -f docker-compose.prod.yml build api web
+docker compose -f docker-compose.prod.yml up -d api web
+```
+
+### Nếu cần rebuild toàn bộ
+```bash
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up -d
+```
+
+## Bước 6 — Kiểm tra trạng thái
 ```bash
 docker compose -f docker-compose.prod.yml ps
 ```
 
-Output phải có 7 services, tất cả là `Up`:
-
-```
-NAME      STATUS
-postgres  Up (healthy)
-redis     Up (healthy)
-api       Up
-worker    Up
-web       Up
-nginx     Up
-tunnel    Up
+### Kiểm tra logs nếu có lỗi
+```bash
+docker compose -f docker-compose.prod.yml logs --tail=100 api
+docker compose -f docker-compose.prod.yml logs --tail=100 web
 ```
 
 ---
 
-## 🔐 Phase 4: Cloudflare Tunnel (5 phút)
+## 6. Khi nào KHÔNG nên deploy kiểu `git pull`
 
-### Bước 1: Vào Cloudflare Zero Trust
-
-1. Truy cập: https://one.dash.cloudflare.com
-2. Chọn tài khoản / organization
-3. Chọn **Access** → **Tunnels**
-4. Click **Create a tunnel**
-
-### Bước 2: Setup tunnel
-
-1. **Connector**: Cloudflared
-2. **Tunnel name**: `deo-production`
-3. Click **Save tunnel**
-
-### Bước 3: Lấy token
-
-Cloudflare sẽ show một dòng lệnh như:
-
-```
-cloudflared tunnel run --token eyJhIjoiY2QwMzU0ZjRkZjQ3ZGE2MDdjNDk4YWY4YzBjZjM4NDUwIiwiYSI6Im1kN2Q0...
-```
-
-**Extract phần token sau `--token`, thêm vào .env:**
-
-```bash
-nano .env
-# Tìm dòng TUNNEL_TOKEN, thay bằng token vừa copy
-TUNNEL_TOKEN=eyJhIjoiY2QwMzU0ZjRkZjQ3ZGE2MDdjNDk4YWY4YzBjZjM4NDUwIiwiYSI6Im1kN2Q0...
-```
-
-Lưu (Ctrl+X → Y → Enter)
-
-### Bước 4: Thêm public hostnames
-
-Trong Cloudflare tunnel details, tab **Public Hostname**, click **Add hostname**:
-
-**Hostname 1:**
-- Subdomain: `dash`
-- Domain: `enterpriseos.bond`
-- Service: `http://nginx:80`
-
-**Hostname 2:**
-- Subdomain: `api`
-- Domain: `enterpriseos.bond`
-- Service: `http://nginx:80`
-
-Sau đó click **Save**.
-
-### Bước 5: Restart tunnel
-
-```bash
-docker compose -f docker-compose.prod.yml up -d tunnel
-```
-
-Chờ vài giây, check status:
-
-```bash
-docker compose -f docker-compose.prod.yml logs tunnel | tail -20
-```
-
-Output phải có:
-
-```
-tunnel: successfully established a connection to the edge
-```
+Không nên mặc định dùng `git pull` nếu:
+- thư mục VPS không phải git repo sạch
+- có patch/manual edits sống trên VPS
+- đang cần giữ `.env` / runtime files / local state cẩn thận
+- chưa xác nhận source-of-truth giữa repo và production
 
 ---
 
-## ✅ Bạn đã xong!
+## 7. Những thứ cần kiểm tra trước mỗi lần deploy
 
-### Truy cập ứng dụng
+### Code / docs
+- repo local đã commit/push đầy đủ chưa
+- docs source-of-truth có được cập nhật chưa
+- có file mới nào cần thêm vào archive không
 
-**Dashboard (React UI):**
-```
-https://dash.enterpriseos.bond
-```
+### Runtime
+- `.env` trên VPS còn đúng không
+- migration SQL có thay đổi không
+- docker compose file có thay đổi không
 
-**API (REST endpoints):**
-```
-https://api.enterpriseos.bond
-```
-
-### Đăng nhập
-
-- **Email**: `vucaotung@gmail.com` (được seed trong DB)
-- **Password**: Dùng API để reset hoặc query trực tiếp DB
-
-Hoặc query DB:
-
-```bash
-docker compose -f docker-compose.prod.yml exec postgres \
-  psql -U deo -d deo_os -c "UPDATE deo.users SET password='hashed' WHERE email='vucaotung@gmail.com';"
-```
+### Risk checks
+- web build hiện có bị chặn bởi TypeScript debt không
+- API có thêm dependency mới không
+- migration có backward compatible không
 
 ---
 
-## 📌 Các lệnh hữu ích
+## 8. Sau deploy nên check gì
 
-### Xem logs API
+### Container status
+```bash
+docker compose -f docker-compose.prod.yml ps
+```
 
+### API logs
 ```bash
 docker compose -f docker-compose.prod.yml logs -f api
 ```
 
-### Xem logs hết services
-
+### Web logs
 ```bash
-docker compose -f docker-compose.prod.yml logs -f
+docker compose -f docker-compose.prod.yml logs -f web
 ```
 
-### Health check
-
+### Health checks phụ
 ```bash
 bash scripts/health-check.sh
 ```
 
-### Backup database
+---
 
-```bash
-bash scripts/backup.sh
-# Backup sẽ lưu tại: /opt/deo-backups/deo_os_YYYYMMDD_HHMMSS.sql.gz
-```
+## 9. Troubleshooting ngắn
 
-### Restart services
+### API build fail
+- kiểm tra dependency mới trong `apps/api/package.json`
+- kiểm tra TypeScript compile errors trong logs
 
-```bash
-docker compose -f docker-compose.prod.yml restart
-```
+### Web build fail
+- rà TypeScript errors toàn app
+- xem lại batch cleanup theo roadmap/docs canonicalization
 
-### Stop tất cả
+### Migrations không khớp
+- check `infrastructure/postgres/`
+- xác nhận migration mới đã được đưa vào archive/deploy
 
-```bash
-docker compose -f docker-compose.prod.yml down
-```
-
-### Xem Cloudflare Tunnel status
-
-```bash
-docker compose -f docker-compose.prod.yml logs tunnel
-```
+### Deploy xong nhưng app vẫn cũ
+- kiểm tra `rsync` có chạy đúng vào `/opt/deo-enterprise-os/` chưa
+- kiểm tra container đã rebuild thật chưa
+- kiểm tra browser cache / reverse proxy cache nếu có
 
 ---
 
-## 🔧 Troubleshooting
+## 10. Deploy và kiến trúc mới
 
-### API không hoạt động
+Các docs orchestration/agent/n8n mới hiện **chủ yếu là source-of-truth cho implementation sau này**, chưa có nghĩa là production đã chạy full stack đó rồi.
 
-```bash
-docker compose -f docker-compose.prod.yml logs api | tail -50
-```
-
-Kiểm tra:
-- Database connection: `docker compose -f docker-compose.prod.yml exec postgres pg_isready -U deo`
-- Redis: `docker compose -f docker-compose.prod.yml exec redis redis-cli ping`
-
-### Database không kết nối
-
-```bash
-docker compose -f docker-compose.prod.yml exec postgres \
-  psql -U deo -d deo_os -c "SELECT 1;"
-```
-
-### Migrations không chạy
-
-```bash
-docker compose -f docker-compose.prod.yml exec postgres \
-  psql -U deo -d deo_os < infrastructure/postgres/002_deo_schema.sql
-```
-
-### Cấu hình .env thay đổi
-
-```bash
-nano .env  # Chỉnh sửa
-docker compose -f docker-compose.prod.yml up -d  # Restart
-```
-
-### Xóa hết, bắt đầu lại
-
-```bash
-docker compose -f docker-compose.prod.yml down -v  # -v xóa volumes
-# Sau đó: bash scripts/deploy.sh
-```
+### Nói rõ
+- có docs architecture locked
+- có implementation plans
+- nhưng rollout production vẫn phải đi theo phase
+- không được giả định rằng chat/agent/n8n stack đã fully wired end-to-end chỉ vì docs đã có
 
 ---
 
-## 📊 Giám sát
+## 11. Tài liệu nên đọc kèm
 
-### CPU / Memory
-
-```bash
-docker stats
-```
-
-### Disk space
-
-```bash
-df -h /
-du -sh /opt/deo-*
-```
-
-### Backup cron
-
-Để auto-backup hàng ngày lúc 2 sáng:
-
-```bash
-crontab -e
-# Thêm dòng:
-0 2 * * * /opt/deo-enterprise-os/scripts/backup.sh
-```
+- `README.md`
+- `ROADMAP_NEXT.md`
+- `docs/WEB_APP_CANONICALIZATION_PLAN.md`
+- `docs/ORCHESTRATION_STACK_V1.md`
+- `docs/AGENT_V1_IMPLEMENTATION_PLAN.md`
+- `docs/N8N_INTEGRATION_IMPLEMENTATION_PLAN.md`
 
 ---
 
-## 🎉 Các bước tiếp theo (Phase 5)
+## 12. Một câu chốt
 
-Sau khi deploy xong:
-
-1. **Cấu hình Email**: Tích hợp SMTP để gửi thông báo
-2. **Cấu hình Agent**: Connect OpenClaw agent với API
-3. **Cấu hình Telegram Bot**: Link bot với `/api/telegram` endpoint
-4. **Cấu hình n8n**: Webhook automation workflows
-5. **Setup Backup Cron**: Auto-backup hàng ngày
-6. **Custom Domain**: Thay `enterpriseos.bond` bằng domain của bạn
-
----
-
-**Cần hỗ trợ? Liên hệ: vucaotung@gmail.com**
+**Ở thời điểm hiện tại, deploy đúng không chỉ là đẩy code lên VPS, mà còn là giữ source-of-truth rõ, không đè config production, và không tự lừa mình rằng docs architecture mới đồng nghĩa production đã sẵn sàng cho mọi flow mới.**

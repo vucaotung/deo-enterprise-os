@@ -1,134 +1,151 @@
 # ROADMAP NEXT
 
 ## Mục tiêu gần nhất
-Đưa Dẹo Enterprise OS từ trạng thái **production demo nội bộ (v0.2.3)** sang **baseline ổn định hơn cho phát triển tiếp (v0.3.0)**.
+Đưa `deo-enterprise-os` từ trạng thái **repo có nhiều hướng phát triển song song và production drift** về trạng thái **source-of-truth rõ, contract sạch hơn, implementation planning khóa chặt hơn**, để bước tiếp theo không bị xây trên nền lệch.
 
 ---
 
-## P0 — Làm ngay
+## P0 — Giữ hệ không loạn thêm
 
-### 1. Chốt source-of-truth
-- Chọn production code / trạng thái đang chạy thật làm chuẩn đối chiếu.
-- So sánh lại local repo hiện tại với production VPS.
-- Ghi rõ phần nào là patch production nhưng chưa nằm trong repo.
+### 1. Chốt source-of-truth giữa repo và production
+- xác định rõ phần nào đang chạy thật trên VPS
+- xác định patch nào đã có trong repo, patch nào mới chỉ sống ở runtime
+- dừng việc để critical runtime knowledge sống ngoài docs quá lâu
 
-**Kết quả mong muốn:**
-- không còn mơ hồ local nào là đúng
-- có danh sách drift cần sync
+### 2. Tiếp tục cleanup contract frontend/backend
+Ưu tiên:
+- auth contract
+- task/project response shape
+- canonical task statuses
+- project-scoped vs global task views
 
----
+### 3. Giảm drift ở web app
+- giảm mock/demo fallback ở các page hub quan trọng
+- ưu tiên runtime-first
+- giữ fallback chỉ là bridge tạm thời
 
-### 2. Audit lại contract frontend/backend
-Các contract cần rà kỹ:
-- auth login / token storage / auth me
-- dashboard summary response
-- tasks response shape
-- task status enum
-- id type (UUID/string)
-
-**Kết quả mong muốn:**
-- có 1 contract thống nhất
-- frontend không còn vá kiểu chữa cháy
+### 4. Giữ docs là source-of-truth thật
+Những doc đã chốt phải được dùng để dẫn implementation, không để architecture nói một đằng code chạy một nẻo.
 
 ---
 
-### 3. Dọn `agent-jobs`
-Hiện tại `agent-jobs` chưa đồng nhất với flow production đang dùng.
+## P1 — Hoàn tất web foundation hiện tại
 
-Cần quyết định 1 trong 2:
-- sửa `agent-jobs` để trở lại là đường orchestration chuẩn
-- hoặc chính thức hóa việc dùng `/api/tasks` như bridge tạm thời, có tài liệu rõ
+### 5. Canonical task/project cleanup
+- backend `tasks.ts` nói cùng ngôn ngữ với frontend
+- lọc/filter canonical statuses chuẩn
+- giảm dần normalization bridge khi backend sạch hơn
 
-**Kết quả mong muốn:**
-- không còn tình trạng bot phải bypass âm thầm mà không ai biết
+### 6. Project management runtime usable hơn
+- `/projects`
+- `/projects/:id`
+- `/projects/:id/tasks`
+- sau đó mở dần sang clarifications / notebooks
 
----
-
-### 4. Kéo runtime patch quan trọng vào repo hoặc tài liệu hóa rõ
-Đặc biệt với:
-- `agent-admin`
-- logic `job-client.js`
-- rule phản hồi sau khi tạo task thật
-
-**Kết quả mong muốn:**
-- tái tạo môi trường được
-- không phụ thuộc “trí nhớ nóng” nữa
+### 7. Giải quyết web TypeScript debt theo batch
+- batch types / badge / shared contracts
+- batch chat / crm / agents / notebooks / clarifications
+- batch finance / dashboard / expenses
 
 ---
 
-## P1 — Làm ngay sau P0
+## P2 — Orchestration foundations
 
-### 5. Tạo docs phát triển chuẩn
-Nên thêm:
-- `docs/STATUS_AUDIT_2026-04-04.md`
-- `docs/RELEASE_PROCESS.md`
-- `docs/PRODUCTION_DRIFT.md`
-- `docs/AGENT_RUNTIME_NOTES.md`
+### 8. Chat / thread foundations
+Build theo `docs/CHAT_V1_IMPLEMENTATION_PLAN.md`:
+- chat schema tối thiểu
+- Telegram ingest core
+- thread state engine
+- coordinator actions tối thiểu
 
----
+### 9. Agent foundations
+Build theo `docs/AGENT_V1_IMPLEMENTATION_PLAN.md`:
+- `agent_definitions`
+- `agent_runtime_states`
+- `agent_bindings`
+- `agent_invocations`
 
-### 6. Chuẩn hóa release discipline
-- Mỗi lần hotfix production phải có changelog entry
-- Mỗi version có tag rõ ràng
-- Có checklist trước khi release
-
----
-
-### 7. Audit lại production config
-Rà lại:
-- `.env.example`
-- `docker-compose.prod.yml`
-- nginx config
-- health check scripts
-- tài liệu deploy
-
-Mục tiêu là để người khác clone repo vẫn hiểu đường lên production.
+### 10. n8n integration foundations
+Build theo `docs/N8N_INTEGRATION_IMPLEMENTATION_PLAN.md`:
+- workflow registry
+- dispatch layer
+- callback endpoint
+- result application traces
 
 ---
 
-## v0.3.0 — Contract Cleanup
+## P3 — Control plane + traceability
 
-### Mục tiêu version
-**v0.3.0 = đồng bộ contract + giảm drift + ổn định flow orchestration cơ bản**
+### 11. Agent Admin basics
+- registry view
+- runtime state view
+- invocation explorer
+- basic retry/cancel
 
-### Deliverables dự kiến
-- Auth contract sạch
-- Dashboard/task contract sạch
-- `agent-jobs` được sửa hoặc deprecate có chủ đích
-- Local repo khớp hơn với production
-- Runtime patch quan trọng được kéo vào repo/docs
-- Tài liệu release + known issues đầy đủ hơn
+### 12. Execution trace basics
+- workflow dispatches
+- workflow callbacks
+- result applications
+- timeline by invocation
+
+### 13. Workflow governance
+- registry validation
+- lifecycle status
+- rollout stages
+- disable/pause/deprecate flows có chủ đích
 
 ---
 
-## P2 — Sau khi đạt v0.3.0
+## P4 — End-to-end usability
 
-### 8. Phase 1 thật sự hoàn tất
-- agent register / heartbeat / poll / pick / complete
-- clarification create / answer / resume
-- audit flow rõ ràng
+### 14. Telegram group as Work OS usable
+- mention → context → action → result loop
+- create project/task/clarification/note từ thread
+- callback kết quả về đúng thread
 
-### 9. Phase 2 thật sự hoàn tất
-- chat center end-to-end
-- clarification inline
-- Telegram ↔ web sync rõ ràng
-- context panel auto-populate thực chiến
+### 15. Specialist invocation usable
+- coordinator summon specialist theo policy
+- context packaging đủ gọn
+- result envelopes chuẩn
 
-### 10. Phase 3 nâng chất
-- tasks kanban sạch hơn
-- CRM usable hơn
-- notebooks CRUD thật sự dùng được
-- dashboard charts meaningful
+### 16. Object linkage usable
+- thread ↔ project
+- thread ↔ task
+- task ↔ clarification
+- project ↔ notebooks / finance / CRM về sau
+
+---
+
+## Tài liệu đã chốt làm nền cho roadmap này
+
+### Web / canonicalization
+- `docs/WEB_APP_CANONICALIZATION_PLAN.md`
+- `docs/PROJECT_MANAGEMENT_DOMAIN_V1.md`
+- `docs/PROJECT_MANAGEMENT_WEB_STRUCTURE.md`
+- `docs/PROJECT_TASK_CANONICAL_UPDATE_2026-04-05.md`
+
+### Orchestration stack
+- `docs/ORCHESTRATION_STACK_V1.md`
+- `docs/CHAT_V1_IMPLEMENTATION_PLAN.md`
+- `docs/AGENT_DOMAIN_V1.md`
+- `docs/N8N_ROLE_IN_ENTERPRISE_OS.md`
+- `docs/AGENT_TO_N8N_EXECUTION_PATTERN.md`
+- `docs/N8N_WORKFLOW_REGISTRY_V1.md`
+- `docs/AGENT_ADMIN_MODEL_V1.md`
+- `docs/AGENT_RUN_AND_CALLBACK_TRACE_MODEL.md`
+- `docs/AGENT_V1_IMPLEMENTATION_PLAN.md`
+- `docs/N8N_INTEGRATION_IMPLEMENTATION_PLAN.md`
 
 ---
 
 ## Nguyên tắc vận hành từ đây
-1. Không hotfix production mà không ghi changelog
-2. Không để runtime patch quan trọng sống ngoài repo quá lâu
-3. Mỗi bước lớn phải có version/tag
-4. Mọi roadmap tiếp theo phải bám trên source-of-truth đã chốt
+1. Không mở feature mới mà không rõ source-of-truth
+2. Không gọi workflow ad-hoc ngoài registry nếu đã vào nhánh orchestration mới
+3. Không để control plane và domain truth lẫn vào nhau
+4. Không để production drift tích tụ âm thầm
+5. Mọi bước lớn nên có doc hoặc implementation plan đi kèm
 
 ---
 
 ## Một câu chốt
-**Từ sau mốc v0.2.3, ưu tiên số 1 không phải thêm feature mới, mà là làm sạch contract, giảm drift, và chuẩn hóa release process để hệ này lớn lên không bị nát.**
+**Roadmap tiếp theo của Dẹo Enterprise OS là: làm sạch nền đang có, khóa contract và source-of-truth, rồi build orchestration stack theo phase — thay vì vừa build vừa đổi triết lý giữa chừng.**
