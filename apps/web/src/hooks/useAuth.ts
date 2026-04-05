@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, createElement } from 'react';
 import { login as apiLogin } from '@/api/client';
 import { User } from '@/types';
 
@@ -70,18 +70,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
   };
 
-  return (
-    <AuthContext.Provider
-      value={{
+  return createElement(
+    AuthContext.Provider,
+    {
+      value: {
         user,
         isAuthenticated: !!user,
         isLoading,
         login,
         logout,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+      },
+    },
+    children
   );
 };
 
