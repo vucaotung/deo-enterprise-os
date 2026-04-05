@@ -25,6 +25,7 @@ Tham chiếu spec chi tiết:
 - `N8N_NODE_BUILD_CHECKLIST_docs.materialize.v1.md`
 - `N8N_IMPORT_AND_CONFIG_GUIDE_docs.from-template.v1.md`
 - `BACKOFFICE_CURL_TESTS_V1.md`
+- `BACKOFFICE_E2E_TEST_PLAYBOOK_V1.md`
 - `infrastructure/n8n/docs.from-template.v1.workflow.skeleton.json`
 
 - [ ] tạo workflow nhận webhook chung cho back office hoặc riêng cho `docs.from-template.v1`
