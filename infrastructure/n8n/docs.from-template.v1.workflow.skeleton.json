@@ -1,0 +1,164 @@
+{
+  "name": "docs.from-template.v1",
+  "meta": {
+    "purpose": "Backoffice template-based Google Docs generation",
+    "version": "v1",
+    "status": "skeleton",
+    "notes": [
+      "This is a build-ready skeleton for n8n, not a fully exported production workflow.",
+      "Use together with docs/N8N_WORKFLOW_docs.from-template.v1_SPEC.md and docs/N8N_NODE_BUILD_CHECKLIST_docs.from-template.v1.md"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "WebhookTrigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [200, 200],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "backoffice/docs/from-template",
+        "responseMode": "responseNode"
+      }
+    },
+    {
+      "id": "GuardCheck",
+      "name": "Guard Check",
+      "type": "n8n-nodes-base.code",
+      "position": [420, 200],
+      "parameters": {
+        "jsCode": "const body = $json.body || $json;\nconst headers = $json.headers || {};\nif (body.workflow_key !== 'docs.from-template.v1') { throw new Error('Invalid workflow_key'); }\nif (!body.invocation_id) { throw new Error('Missing invocation_id'); }\nif (!body.payload || (!body.payload.template_key && !body.payload.template_id)) { throw new Error('Missing template reference'); }\nif (!body.payload.title) { throw new Error('Missing payload.title'); }\nif (!body.callback || !body.callback.url) { throw new Error('Missing callback.url'); }\nreturn [{ json: { body, headers } }];"
+      }
+    },
+    {
+      "id": "NormalizeInput",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "position": [660, 200],
+      "parameters": {
+        "jsCode": "const body = $json.body;\nreturn [{ json: {\n  invocation_id: body.invocation_id,\n  workflow_key: body.workflow_key,\n  objective: body.objective,\n  template_key: body.payload.template_key || null,\n  template_id: body.payload.template_id || null,\n  title: body.payload.title,\n  data: body.payload.data || {},\n  target_folder: body.payload.target_folder || null,\n  document_type: body.payload.document_type || 'tai lieu',\n  reviewers: body.reviewers || [],\n  callback_url: body.callback.url,\n  callback_token: body.callback.token || null,\n  context: body.context || {},\n  status: body.payload.status || 'draft',\n  version: body.payload.version || 'v1'\n} }];"
+      }
+    },
+    {
+      "id": "ResolveTemplateId",
+      "name": "Resolve Template ID",
+      "type": "n8n-nodes-base.code",
+      "position": [900, 200],
+      "parameters": {
+        "jsCode": "const map = {\n  hop_dong_dich_vu_v1: 'REPLACE_WITH_GOOGLE_TEMPLATE_ID',\n  bao_gia_v1: 'REPLACE_WITH_GOOGLE_TEMPLATE_ID'\n};\nconst templateId = $json.template_id || map[$json.template_key];\nif (!templateId) { throw new Error(`Cannot resolve template_id for key: ${$json.template_key}`); }\nreturn [{ json: { ...$json, template_id: templateId } }];"
+      }
+    },
+    {
+      "id": "EnsureFolderExists",
+      "name": "Ensure Folder Exists",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [1140, 120],
+      "parameters": {
+        "content": "Implement with Google Drive search/create nodes. Input: target_folder.folder_path. Output: target_folder_id, target_folder_path"
+      }
+    },
+    {
+      "id": "CopyTemplateDocument",
+      "name": "Copy Template Document",
+      "type": "n8n-nodes-base.googleDrive",
+      "position": [1380, 200],
+      "parameters": {
+        "operation": "copy",
+        "fileId": "={{ $json.template_id }}",
+        "name": "={{ $json.title }}"
+      }
+    },
+    {
+      "id": "BuildReplaceRequests",
+      "name": "Build Replace Requests",
+      "type": "n8n-nodes-base.code",
+      "position": [1620, 200],
+      "parameters": {
+        "jsCode": "const data = $json.data || {};\nconst requests = Object.entries(data).map(([key, value]) => ({\n  replaceAllText: {\n    containsText: { text: `{{${key}}}`, matchCase: true },\n    replaceText: String(value ?? '')\n  }\n}));\nreturn [{ json: { ...$json, requests } }];"
+      }
+    },
+    {
+      "id": "ApplyPlaceholderReplacements",
+      "name": "Apply Placeholder Replacements",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1860, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://docs.googleapis.com/v1/documents/' + $json.id + ':batchUpdate' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { requests: $json.requests } }}"
+      }
+    },
+    {
+      "id": "OptionalReviewerSharing",
+      "name": "Optional Reviewer Sharing",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [2100, 120],
+      "parameters": {
+        "content": "If reviewers.length > 0, add Google Drive permissions nodes here. Default permission_mode=commenter"
+      }
+    },
+    {
+      "id": "BuildSuccessCallbackPayload",
+      "name": "Build Success Callback Payload",
+      "type": "n8n-nodes-base.code",
+      "position": [2340, 200],
+      "parameters": {
+        "jsCode": "return [{ json: {\n  invocation_id: $json.invocation_id,\n  workflow_key: 'docs.from-template.v1',\n  status: 'completed',\n  generated_title: $json.title,\n  file_id: $json.id || null,\n  file_type: 'gdoc',\n  file_url: $json.webViewLink || null,\n  folder_id: ($json.target_folder && $json.target_folder.folder_id) || null,\n  folder_path: ($json.target_folder && $json.target_folder.folder_path) || null,\n  generation_mode: 'template_based',\n  document_type: $json.document_type,\n  reviewer_emails: $json.reviewers || [],\n  permission_mode: ($json.reviewers || []).length ? 'commenter' : null,\n  output_summary: 'Google Doc da duoc tao tu template.',\n  completed_at: new Date().toISOString()\n} }];"
+      }
+    },
+    {
+      "id": "PostSuccessCallback",
+      "name": "POST Success Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2580, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callback_url || $item(0).$node['Normalize Input'].json.callback_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}"
+      }
+    },
+    {
+      "id": "Respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [2820, 200],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, invocation_id: $json.invocation_id, workflow_key: $json.workflow_key } }}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Guard Check", "type": "main", "index": 0 }]]
+    },
+    "Guard Check": {
+      "main": [[{ "node": "Normalize Input", "type": "main", "index": 0 }]]
+    },
+    "Normalize Input": {
+      "main": [[{ "node": "Resolve Template ID", "type": "main", "index": 0 }]]
+    },
+    "Resolve Template ID": {
+      "main": [[{ "node": "Copy Template Document", "type": "main", "index": 0 }]]
+    },
+    "Copy Template Document": {
+      "main": [[{ "node": "Build Replace Requests", "type": "main", "index": 0 }]]
+    },
+    "Build Replace Requests": {
+      "main": [[{ "node": "Apply Placeholder Replacements", "type": "main", "index": 0 }]]
+    },
+    "Apply Placeholder Replacements": {
+      "main": [[{ "node": "Build Success Callback Payload", "type": "main", "index": 0 }]]
+    },
+    "Build Success Callback Payload": {
+      "main": [[{ "node": "POST Success Callback", "type": "main", "index": 0 }]]
+    },
+    "POST Success Callback": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  }
+}
