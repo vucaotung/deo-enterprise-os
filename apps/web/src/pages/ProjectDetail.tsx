@@ -190,10 +190,11 @@ export const ProjectDetail = () => {
         <div className="flex gap-2 flex-wrap">
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 bg-slate-50"
+            onClick={() => navigate(`/projects/${project.id}/tasks`)}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             <ClipboardList size={16} />
-            Task view theo project (Phase C)
+            Xem task view theo project
           </button>
           <button className="inline-flex items-center gap-2 px-4 py-2 bg-deo-accent text-white rounded-lg text-sm font-medium hover:bg-cyan-600">
             Cập nhật project
@@ -310,9 +311,13 @@ export const ProjectDetail = () => {
           <CardHeader>
             <div className="flex items-center justify-between gap-4">
               <CardTitle>Task snapshot</CardTitle>
-              <span className="text-sm font-medium text-slate-500">
-                Project task view sẽ mở ở Phase C
-              </span>
+              <button
+                type="button"
+                onClick={() => navigate(`/projects/${project.id}/tasks`)}
+                className="text-sm font-medium text-deo-accent hover:underline"
+              >
+                Mở task view
+              </button>
             </div>
           </CardHeader>
           <CardContent>

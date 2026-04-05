@@ -8,6 +8,7 @@ import { Chat } from '@/pages/Chat';
 import { Tasks } from '@/pages/Tasks';
 import { Projects } from '@/pages/Projects';
 import { ProjectDetail } from '@/pages/ProjectDetail';
+import { ProjectTasks } from '@/pages/ProjectTasks';
 import { CRM } from '@/pages/CRM';
 import { Finance } from '@/pages/Finance';
 import { Agents } from '@/pages/Agents';
@@ -73,6 +74,7 @@ const AppRoutes = () => {
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
+        <Route path="/projects/:id/tasks" element={<ProjectTasks />} />
         <Route path="/crm" element={<CRM />} />
         <Route path="/finance" element={<Finance />} />
         <Route path="/agents" element={<Agents />} />
