@@ -17,16 +17,24 @@ class BackofficeDispatchService {
     const workflow = await backofficeRegistryService.ensureWorkflowEnabled(input.workflow_key);
 
     const invocationId = uuidv4();
+    const callbackUrl = process.env.BACKOFFICE_CALLBACK_URL || '/api/backoffice/workflows/callback';
+    const callbackToken = process.env.BACKOFFICE_CALLBACK_TOKEN || undefined;
+
     const dispatchPayload = {
       invocation_id: invocationId,
       workflow_key: workflow.workflow_key,
       objective: input.objective,
+      invoked_by: {
+        type: input.invoked_by_type || 'human',
+        id: input.invoked_by_id || null,
+      },
       context: input.context || {},
       payload: input.payload || {},
       reviewers: input.reviewers || [],
-      invoked_by_type: input.invoked_by_type || 'human',
-      invoked_by_id: input.invoked_by_id || null,
-      callback_url: process.env.BACKOFFICE_CALLBACK_URL || '/api/backoffice/workflows/callback',
+      callback: {
+        url: callbackUrl,
+        token: callbackToken,
+      },
     };
 
     const entrypoint = workflow.n8n_entrypoint_url || process.env.BACKOFFICE_N8N_WEBHOOK_URL || null;
@@ -44,6 +52,8 @@ class BackofficeDispatchService {
     await axios.post(entrypoint, dispatchPayload, {
       headers: {
         'Content-Type': 'application/json',
+        'X-Backoffice-Workflow-Key': workflow.workflow_key,
+        'X-Invocation-Id': invocationId,
         ...(process.env.BACKOFFICE_N8N_API_KEY
           ? { Authorization: `Bearer ${process.env.BACKOFFICE_N8N_API_KEY}` }
           : {}),

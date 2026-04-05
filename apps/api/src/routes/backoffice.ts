@@ -71,25 +71,38 @@ router.post('/docs/from-template', authMiddleware, async (req: AuthRequest, res:
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
+    const context = req.body.context || {};
+    const resolvedFolder = req.body.target_folder || backofficeFolderService.resolveFolder({
+      generation_mode: 'template_based',
+      document_type: req.body.document_type || 'tai lieu',
+      year: req.body.year,
+      project_slug: req.body.project_slug,
+      client_slug: req.body.client_slug,
+    });
+
     const result = await backofficeDispatchService.dispatch({
       workflow_key: BACKOFFICE_WORKFLOW_KEYS.DOCS_FROM_TEMPLATE,
       objective: req.body.objective || 'generate document from template',
-      context: req.body.context || {},
+      context,
       payload: {
         template_key: req.body.template_key,
         template_id: req.body.template_id,
         title: req.body.title,
         data: req.body.data || {},
-        target_folder: req.body.target_folder || null,
+        target_folder: resolvedFolder,
         status: req.body.status || 'draft',
         version: req.body.version || 'v1',
+        document_type: req.body.document_type || 'tai lieu',
       },
       reviewers: req.body.reviewers || [],
       invoked_by_type: 'human',
       invoked_by_id: req.user.id,
     });
 
-    res.status(202).json(result);
+    res.status(202).json({
+      ...result,
+      resolved_folder: resolvedFolder,
+    });
   } catch (error: any) {
     console.error('Dispatch docs.from-template error', error);
     res.status(500).json({ error: error.message || 'Failed to dispatch docs.from-template' });
