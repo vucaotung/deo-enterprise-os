@@ -18,6 +18,8 @@
 
 ## Phase 1 — Chuẩn bị n8n side
 
+Tham chiếu spec chi tiết: `N8N_WORKFLOW_docs.from-template.v1_SPEC.md`
+
 - [ ] tạo workflow nhận webhook chung cho back office hoặc riêng cho `docs.from-template.v1`
 - [ ] map request body theo `BACKOFFICE_N8N_WEBHOOK_CONTRACT_V1.md`
 - [ ] đọc được headers:
