@@ -48,6 +48,37 @@ export interface Client {
   updated_at: string;
 }
 
+export type ProjectStatus = 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled';
+export type ProjectPriority = 'low' | 'medium' | 'high';
+
+export interface Project {
+  id: string;
+  company_id: string;
+  client_id?: string;
+  owner_id?: string;
+  name: string;
+  code?: string;
+  description?: string;
+  status: ProjectStatus;
+  priority: ProjectPriority;
+  start_date?: string;
+  due_date?: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+  task_summary?: {
+    total: number;
+    todo: number;
+    in_progress: number;
+    completed: number;
+    cancelled: number;
+  };
+  open_clarifications?: number;
+  progress_percent?: number;
+  client?: Client;
+  owner?: User;
+}
+
 export interface DashboardSummary {
   taskCount: number;
   expenseCount: number;
