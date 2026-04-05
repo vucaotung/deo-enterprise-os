@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Task } from '@/types';
-import { KanbanBoard } from '@/components/KanbanBoard';
+import { ListFilter, Plus, Rows3, SquareKanban } from 'lucide-react';
+import type { Task } from '@/types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { SlidePanel } from '@/components/SlidePanel';
-import { Badge } from '@/components/Badge';
 import { Modal } from '@/components/Modal';
-import { Plus, Layout, List, HelpCircle } from 'lucide-react';
-import { formatDate, getPriorityColor, getStatusColor } from '@/lib/utils';
+import { Badge } from '@/components/Badge';
+import { formatDate } from '@/lib/utils';
 
 interface OutletContext {
   setPageTitle: (title: string) => void;
@@ -14,273 +14,313 @@ interface OutletContext {
 
 const mockTasks: Task[] = [
   {
-    id: '1',
-    title: 'Phân tích dữ liệu thị trường',
-    description: 'Phân tích xu hướng bán hàng',
-    status: 'IN_PROGRESS',
+    id: 't1',
+    title: 'Canonicalize auth flow',
+    description: 'Chốt auth shell, route guard và login flow về cùng một ngôn ngữ.',
+    status: 'in_progress',
     priority: 'high',
-    company_id: 'c1',
     project_id: 'p1',
-    assigned_to: 'u1',
+    assigned_to: 'vincent_vtung',
     due_date: new Date(Date.now() + 86400000).toISOString(),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    has_clarification: true,
-    clarification_count: 1,
-    assignee: {
-      id: 'u1',
-      email: 'user1@company.com',
-      name: 'Trần Thị B',
-      role: 'user',
-      company_id: 'c1',
-    },
   },
   {
-    id: '2',
-    title: 'Chuẩn bị báo cáo hàng tháng',
-    description: 'Tổng hợp báo cáo tài chính',
-    status: 'TODO',
+    id: 't2',
+    title: 'Stabilize task route schema',
+    description: 'Dọn API/task routes cho đúng schema runtime và type layer.',
+    status: 'todo',
     priority: 'medium',
-    company_id: 'c1',
     project_id: 'p1',
-    assigned_to: 'u2',
-    due_date: new Date(Date.now() + 259200000).toISOString(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    has_clarification: false,
-    clarification_count: 0,
-    assignee: {
-      id: 'u2',
-      email: 'user2@company.com',
-      name: 'Lê Hoàng C',
-      role: 'user',
-      company_id: 'c1',
-    },
-  },
-  {
-    id: '3',
-    title: 'Theo dõi khách hàng tiềm năng',
-    description: 'Liên hệ khách hàng mới',
-    status: 'BLOCKED',
-    priority: 'critical',
-    company_id: 'c1',
-    project_id: 'p2',
-    assigned_to: 'u3',
-    due_date: new Date(Date.now() - 86400000).toISOString(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    has_clarification: false,
-    clarification_count: 0,
-    assignee: {
-      id: 'u3',
-      email: 'user3@company.com',
-      name: 'Phạm Hồng D',
-      role: 'user',
-      company_id: 'c1',
-    },
-  },
-  {
-    id: '4',
-    title: 'Cập nhật chính sách công ty',
-    description: 'Cập nhật tài liệu chính sách',
-    status: 'IN_REVIEW',
-    priority: 'low',
-    company_id: 'c1',
-    project_id: 'p1',
-    assigned_to: 'u1',
+    assigned_to: 'operator_1',
     due_date: new Date(Date.now() + 172800000).toISOString(),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    has_clarification: false,
-    clarification_count: 0,
-    assignee: {
-      id: 'u1',
-      email: 'user1@company.com',
-      name: 'Trần Thị B',
-      role: 'user',
-      company_id: 'c1',
-    },
   },
   {
-    id: '5',
-    title: 'Hoàn thành dự án web',
-    description: 'Triển khai website mới',
-    status: 'DONE',
+    id: 't3',
+    title: 'Wire project hub into app shell',
+    description: 'Thêm route, sidebar và page shell cho domain project.',
+    status: 'completed',
     priority: 'high',
-    company_id: 'c1',
-    project_id: 'p3',
-    assigned_to: 'u2',
-    due_date: new Date(Date.now() - 172800000).toISOString(),
+    project_id: 'p1',
+    assigned_to: 'vincent_vtung',
+    due_date: new Date(Date.now() - 86400000).toISOString(),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    has_clarification: false,
-    clarification_count: 0,
-    assignee: {
-      id: 'u2',
-      email: 'user2@company.com',
-      name: 'Lê Hoàng C',
-      role: 'user',
-      company_id: 'c1',
-    },
+  },
+  {
+    id: 't4',
+    title: 'Review finance mock states',
+    description: 'Xác định debt còn lại trong finance hub trước khi cleanup.',
+    status: 'todo',
+    priority: 'medium',
+    project_id: 'p2',
+    assigned_to: 'vincent_vtung',
+    due_date: new Date(Date.now() + 259200000).toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 't5',
+    title: 'Map finance cards to canonical sections',
+    description: 'Chia finance hub thành sections đúng domain.',
+    status: 'cancelled',
+    priority: 'low',
+    project_id: 'p2',
+    assigned_to: 'vincent_vtung',
+    due_date: new Date(Date.now() + 345600000).toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 't6',
+    title: 'Split CRM hub from lead detail flow',
+    description: 'Tách layer hub và detail để CRM route không ôm quá nhiều state.',
+    status: 'in_progress',
+    priority: 'high',
+    project_id: 'p3',
+    assigned_to: 'operator_1',
+    due_date: new Date(Date.now() + 86400000 * 4).toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 't7',
+    title: 'Audit client lifecycle language',
+    description: 'Đồng bộ labels/trạng thái giữa CRM hub và client detail.',
+    status: 'todo',
+    priority: 'medium',
+    project_id: 'p3',
+    assigned_to: 'operator_2',
+    due_date: new Date(Date.now() + 86400000 * 6).toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   },
 ];
 
+const statusLabelMap: Record<Task['status'], string> = {
+  todo: 'To do',
+  in_progress: 'In progress',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+};
+
+const statusVariantMap: Record<Task['status'], 'warning' | 'info' | 'success' | 'error'> = {
+  todo: 'warning',
+  in_progress: 'info',
+  completed: 'success',
+  cancelled: 'error',
+};
+
+const priorityVariantMap: Record<NonNullable<Task['priority']>, 'default' | 'warning' | 'error'> = {
+  low: 'default',
+  medium: 'warning',
+  high: 'error',
+};
+
 export const Tasks = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
-  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [statusFilter, setStatusFilter] = useState<'all' | Task['status']>('all');
+  const [tasks] = useState<Task[]>(mockTasks);
 
   useEffect(() => {
     setPageTitle('Công việc');
   }, [setPageTitle]);
 
-  const kanbanColumns = [
-    { id: 'TODO', title: 'Chưa làm' },
-    { id: 'IN_PROGRESS', title: 'Đang làm' },
-    { id: 'BLOCKED', title: 'Bị chặn' },
-    { id: 'IN_REVIEW', title: 'Đang duyệt' },
-    { id: 'DONE', title: 'Hoàn thành' },
-  ];
+  const filteredTasks = useMemo(() => {
+    if (statusFilter === 'all') return tasks;
+    return tasks.filter((task) => task.status === statusFilter);
+  }, [tasks, statusFilter]);
 
-  const kanbanCards = kanbanColumns.reduce(
-    (acc, col) => {
-      acc[col.id] = tasks
-        .filter((t) => t.status === col.id)
-        .map((task) => ({
-          id: task.id,
-          title: task.title,
-          description: task.assignee?.name,
-          badges: [
-            <Badge
-              key="priority"
-              size="sm"
-              className={getPriorityColor(task.priority)}
-            >
-              {task.priority}
-            </Badge>,
-            task.has_clarification && (
-              <span key="clarification" className="text-orange-600 text-sm">
-                <HelpCircle size={14} className="inline mr-1" />
-                {task.clarification_count}
-              </span>
-            ),
-          ].filter(Boolean),
-        }));
-      return acc;
-    },
-    {} as Record<string, any[]>
-  );
+  const groupedTasks = useMemo(() => {
+    return {
+      todo: filteredTasks.filter((task) => task.status === 'todo'),
+      in_progress: filteredTasks.filter((task) => task.status === 'in_progress'),
+      completed: filteredTasks.filter((task) => task.status === 'completed'),
+      cancelled: filteredTasks.filter((task) => task.status === 'cancelled'),
+    };
+  }, [filteredTasks]);
+
+  const totalTasks = tasks.length;
+  const todoTasks = tasks.filter((task) => task.status === 'todo').length;
+  const inProgressTasks = tasks.filter((task) => task.status === 'in_progress').length;
+  const completedTasks = tasks.filter((task) => task.status === 'completed').length;
 
   const handleAddTask = () => {
     setShowAddModal(false);
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setViewMode('kanban')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-              viewMode === 'kanban'
-                ? 'bg-deo-accent text-white'
-                : 'bg-slate-200 text-slate-900 hover:bg-slate-300'
-            }`}
-          >
-            <Layout size={16} />
-            Kanban
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-              viewMode === 'list'
-                ? 'bg-deo-accent text-white'
-                : 'bg-slate-200 text-slate-900 hover:bg-slate-300'
-            }`}
-          >
-            <List size={16} />
-            Danh sách
-          </button>
-        </div>
-
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-deo-accent text-white rounded-lg font-medium hover:bg-cyan-600 transition-colors"
-        >
-          <Plus size={16} />
-          Thêm công việc
-        </button>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent>
+            <p className="text-sm text-slate-600 mb-2">Tổng task</p>
+            <p className="text-2xl font-bold text-slate-900">{totalTasks}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-sm text-slate-600 mb-2">Todo</p>
+            <p className="text-2xl font-bold text-amber-600">{todoTasks}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-sm text-slate-600 mb-2">In progress</p>
+            <p className="text-2xl font-bold text-cyan-600">{inProgressTasks}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-sm text-slate-600 mb-2">Completed</p>
+            <p className="text-2xl font-bold text-green-600">{completedTasks}</p>
+          </CardContent>
+        </Card>
       </div>
 
-      {viewMode === 'kanban' ? (
-        <KanbanBoard
-          columns={kanbanColumns}
-          cards={kanbanCards}
-          onCardClick={(cardId) => {
-            const task = tasks.find((t) => t.id === cardId);
-            if (task) setSelectedTask(task);
-          }}
-        />
-      ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
-                  Công việc
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
-                  Gán cho
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
-                  Ưu tiên
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
-                  Trạng thái
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
-                  Hạn
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.map((task) => (
-                <tr
-                  key={task.id}
-                  onClick={() => setSelectedTask(task)}
-                  className="border-b border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors"
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <CardTitle>Global task view</CardTitle>
+              <p className="text-sm text-slate-600 mt-1">
+                Toàn bộ task đang dùng chung canonical language với project-scoped task view.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium ${
+                    viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
+                  }`}
                 >
-                  <td className="px-6 py-4">
-                    <p className="font-medium text-slate-900">{task.title}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-slate-600">
-                      {task.assignee?.name}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge className={getPriorityColor(task.priority)}>
-                      {task.priority}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge className={getStatusColor(task.status)}>
-                      {task.status}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-slate-600">
-                      {formatDate(task.due_date)}
-                    </p>
-                  </td>
-                </tr>
+                  <Rows3 size={16} />
+                  List
+                </button>
+                <button
+                  onClick={() => setViewMode('kanban')}
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium ${
+                    viewMode === 'kanban' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
+                  }`}
+                >
+                  <SquareKanban size={16} />
+                  Kanban
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <ListFilter size={16} className="text-slate-500" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as 'all' | Task['status'])}
+                  className="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-deo-accent focus:border-transparent"
+                >
+                  <option value="all">Tất cả trạng thái</option>
+                  <option value="todo">To do</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-deo-accent text-white rounded-lg font-medium hover:bg-cyan-600 transition-colors"
+              >
+                <Plus size={16} />
+                Thêm công việc
+              </button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {filteredTasks.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
+              <h3 className="text-lg font-semibold text-slate-900">Không có task phù hợp</h3>
+              <p className="text-sm text-slate-600 mt-2">Đổi bộ lọc hoặc tạo task mới để bắt đầu execution layer.</p>
+            </div>
+          ) : viewMode === 'list' ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Task</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Project</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Assignee</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Priority</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Status</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Due date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTasks.map((task) => (
+                    <tr
+                      key={task.id}
+                      onClick={() => setSelectedTask(task)}
+                      className="border-b border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors"
+                    >
+                      <td className="px-4 py-4">
+                        <p className="font-medium text-slate-900">{task.title}</p>
+                        {task.description && <p className="text-sm text-slate-500 mt-1">{task.description}</p>}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-slate-700">{task.project_id || 'No project'}</td>
+                      <td className="px-4 py-4 text-sm text-slate-700">{task.assigned_to || 'Chưa gán'}</td>
+                      <td className="px-4 py-4">
+                        {task.priority ? <Badge variant={priorityVariantMap[task.priority]}>{task.priority}</Badge> : '-'}
+                      </td>
+                      <td className="px-4 py-4">
+                        <Badge variant={statusVariantMap[task.status]}>{statusLabelMap[task.status]}</Badge>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-slate-700">{task.due_date ? formatDate(task.due_date) : 'Chưa có'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+              {(['todo', 'in_progress', 'completed', 'cancelled'] as const).map((status) => (
+                <div key={status} className="rounded-xl bg-slate-50 p-4 border border-slate-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-slate-900">{statusLabelMap[status]}</h3>
+                    <Badge variant={statusVariantMap[status]}>{groupedTasks[status].length}</Badge>
+                  </div>
+                  <div className="space-y-3">
+                    {groupedTasks[status].length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+                        Không có task.
+                      </div>
+                    ) : (
+                      groupedTasks[status].map((task) => (
+                        <button
+                          key={task.id}
+                          onClick={() => setSelectedTask(task)}
+                          className="w-full text-left rounded-lg bg-white border border-slate-200 p-4 shadow-sm hover:border-cyan-300 transition-colors"
+                        >
+                          <p className="font-medium text-slate-900">{task.title}</p>
+                          {task.description && <p className="text-sm text-slate-500 mt-2">{task.description}</p>}
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {task.priority && <Badge variant={priorityVariantMap[task.priority]}>{task.priority}</Badge>}
+                            <Badge variant="default">{task.assigned_to || 'Chưa gán'}</Badge>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-3">Due: {task.due_date ? formatDate(task.due_date) : 'Chưa có'}</p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <SlidePanel
         isOpen={!!selectedTask}
@@ -292,51 +332,39 @@ export const Tasks = () => {
           <div className="space-y-6">
             <div>
               <h4 className="font-semibold text-slate-900 mb-2">Mô tả</h4>
-              <p className="text-slate-600">{selectedTask.description}</p>
+              <p className="text-slate-600">{selectedTask.description || 'Chưa có mô tả.'}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-slate-600 mb-1">Ưu tiên</p>
-                <Badge className={getPriorityColor(selectedTask.priority)}>
-                  {selectedTask.priority}
-                </Badge>
+                {selectedTask.priority ? (
+                  <Badge variant={priorityVariantMap[selectedTask.priority]}>{selectedTask.priority}</Badge>
+                ) : (
+                  <p className="text-sm text-slate-900">Chưa có</p>
+                )}
               </div>
               <div>
                 <p className="text-xs text-slate-600 mb-1">Trạng thái</p>
-                <Badge className={getStatusColor(selectedTask.status)}>
-                  {selectedTask.status}
-                </Badge>
+                <Badge variant={statusVariantMap[selectedTask.status]}>{statusLabelMap[selectedTask.status]}</Badge>
               </div>
             </div>
 
-            <div>
-              <p className="text-xs text-slate-600 mb-2">Gán cho</p>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-deo-accent rounded-full flex items-center justify-center text-xs font-bold text-white">
-                  {selectedTask.assignee?.name.charAt(0)}
-                </div>
-                <p className="text-sm text-slate-900">
-                  {selectedTask.assignee?.name}
-                </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-slate-600 mb-1">Project</p>
+                <p className="text-sm text-slate-900">{selectedTask.project_id || 'No project'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-600 mb-1">Gán cho</p>
+                <p className="text-sm text-slate-900">{selectedTask.assigned_to || 'Chưa gán'}</p>
               </div>
             </div>
 
             <div>
               <p className="text-xs text-slate-600 mb-1">Hạn cuối</p>
-              <p className="text-sm text-slate-900">
-                {formatDate(selectedTask.due_date)}
-              </p>
+              <p className="text-sm text-slate-900">{selectedTask.due_date ? formatDate(selectedTask.due_date) : 'Chưa có'}</p>
             </div>
-
-            {selectedTask.has_clarification && (
-              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                <p className="font-medium text-orange-900 mb-2 flex items-center gap-2">
-                  <HelpCircle size={16} />
-                  Có {selectedTask.clarification_count} câu hỏi chưa trả lời
-                </p>
-              </div>
-            )}
 
             <button className="w-full bg-deo-accent text-white py-2 rounded-lg font-medium hover:bg-cyan-600 transition-colors">
               Chỉnh sửa công việc
@@ -353,9 +381,7 @@ export const Tasks = () => {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-2">
-              Tiêu đề
-            </label>
+            <label className="block text-sm font-medium text-slate-900 mb-2">Tiêu đề</label>
             <input
               type="text"
               placeholder="Nhập tiêu đề công việc..."
@@ -364,9 +390,7 @@ export const Tasks = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-900 mb-2">
-              Mô tả
-            </label>
+            <label className="block text-sm font-medium text-slate-900 mb-2">Mô tả</label>
             <textarea
               placeholder="Mô tả chi tiết công việc..."
               rows={4}
