@@ -183,8 +183,10 @@ export const ProjectTasks = () => {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [statusFilter, setStatusFilter] = useState<'all' | Task['status']>('all');
-  const [project, setProject] = useState<Project | undefined>(id ? mockProjects[id] : undefined);
-  const [tasks, setTasks] = useState<Task[]>(mockTasks.filter((task) => task.project_id === id));
+  const [project, setProject] = useState<Project | undefined>(undefined);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(false);
 
   useEffect(() => {
     setPageTitle(project ? `${project.name} · Tasks` : 'Project tasks');
@@ -195,17 +197,22 @@ export const ProjectTasks = () => {
       if (!id) return;
 
       try {
+        setIsLoading(true);
         const [projectData, taskData] = await Promise.all([
           getProject(id),
           getTasks({ project_id: id }),
         ]);
 
         setProject(projectData);
-        if (taskData.length > 0) {
-          setTasks(taskData);
-        }
+        setTasks(taskData);
+        setUsingFallback(false);
       } catch (error) {
         console.warn('Falling back to mock project task data', error);
+        setProject(id ? mockProjects[id] : undefined);
+        setTasks(mockTasks.filter((task) => task.project_id === id));
+        setUsingFallback(true);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -251,6 +258,12 @@ export const ProjectTasks = () => {
 
   return (
     <div className="space-y-6">
+      {usingFallback && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Đang dùng fallback task data cho project này vì runtime API chưa sẵn sàng.
+        </div>
+      )}
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <button
@@ -350,7 +363,12 @@ export const ProjectTasks = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {projectTasks.length === 0 ? (
+          {isLoading ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
+              <h3 className="text-lg font-semibold text-slate-900">Đang tải task runtime...</h3>
+              <p className="text-sm text-slate-600 mt-2">Dẹo đang kéo task theo `project_id` từ API.</p>
+            </div>
+          ) : projectTasks.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
               <h3 className="text-lg font-semibold text-slate-900">Chưa có task nào</h3>
               <p className="text-sm text-slate-600 mt-2">Tạo task đầu tiên để project này có execution layer thật.</p>

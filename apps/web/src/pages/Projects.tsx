@@ -89,10 +89,11 @@ const statusVariantMap: Record<ProjectStatus, 'info' | 'warning' | 'success' | '
 export const Projects = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectStatus>('all');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(false);
 
   useEffect(() => {
     setPageTitle('Projects');
@@ -103,11 +104,12 @@ export const Projects = () => {
       try {
         setIsLoading(true);
         const data = await getProjects();
-        if (data.length > 0) {
-          setProjects(data);
-        }
+        setProjects(data);
+        setUsingFallback(false);
       } catch (error) {
         console.warn('Falling back to mock projects', error);
+        setProjects(mockProjects);
+        setUsingFallback(true);
       } finally {
         setIsLoading(false);
       }
@@ -137,6 +139,12 @@ export const Projects = () => {
 
   return (
     <div className="space-y-6">
+      {usingFallback && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Đang dùng dữ liệu fallback vì API projects chưa phản hồi đúng lúc này.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <Card>
           <CardContent>

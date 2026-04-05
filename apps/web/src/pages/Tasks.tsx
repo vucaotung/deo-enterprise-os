@@ -126,7 +126,9 @@ export const Tasks = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | Task['status']>('all');
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(false);
 
   useEffect(() => {
     setPageTitle('Công việc');
@@ -135,12 +137,16 @@ export const Tasks = () => {
   useEffect(() => {
     const loadTasks = async () => {
       try {
+        setIsLoading(true);
         const data = await getTasks();
-        if (data.length > 0) {
-          setTasks(data);
-        }
+        setTasks(data);
+        setUsingFallback(false);
       } catch (error) {
         console.warn('Falling back to mock tasks', error);
+        setTasks(mockTasks);
+        setUsingFallback(true);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -172,6 +178,12 @@ export const Tasks = () => {
 
   return (
     <div className="space-y-6">
+      {usingFallback && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Đang dùng fallback task data vì runtime API chưa phản hồi ổn định.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent>
@@ -257,7 +269,12 @@ export const Tasks = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {filteredTasks.length === 0 ? (
+          {isLoading ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
+              <h3 className="text-lg font-semibold text-slate-900">Đang tải tasks...</h3>
+              <p className="text-sm text-slate-600 mt-2">Dẹo đang kéo global task list từ API.</p>
+            </div>
+          ) : filteredTasks.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
               <h3 className="text-lg font-semibold text-slate-900">Không có task phù hợp</h3>
               <p className="text-sm text-slate-600 mt-2">Đổi bộ lọc hoặc tạo task mới để bắt đầu execution layer.</p>

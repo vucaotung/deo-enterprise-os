@@ -128,7 +128,8 @@ export const ProjectDetail = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
   const { id } = useParams();
   const navigate = useNavigate();
-  const [project, setProject] = useState<Project | undefined>(id ? mockProjects[id] : undefined);
+  const [project, setProject] = useState<Project | undefined>(undefined);
+  const [usingFallback, setUsingFallback] = useState(false);
 
   useEffect(() => {
     setPageTitle(project ? project.name : 'Project detail');
@@ -141,8 +142,11 @@ export const ProjectDetail = () => {
       try {
         const data = await getProject(id);
         setProject(data);
+        setUsingFallback(false);
       } catch (error) {
         console.warn('Falling back to mock project detail', error);
+        setProject(mockProjects[id]);
+        setUsingFallback(true);
       }
     };
 
@@ -177,6 +181,12 @@ export const ProjectDetail = () => {
 
   return (
     <div className="space-y-6">
+      {usingFallback && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Đang dùng fallback project detail vì API detail chưa phản hồi đúng lúc này.
+        </div>
+      )}
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <button

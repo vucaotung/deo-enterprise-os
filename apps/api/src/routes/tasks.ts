@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { query as dbQuery } from '../db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
-import { logAuditEvent, AuditedRequest } from '../middleware/audit';
+import { AuditedRequest } from '../middleware/audit';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
@@ -13,16 +13,44 @@ const getPaginationParams = (query: any) => {
   return { page, limit, offset };
 };
 
+const normalizeIncomingStatus = (status?: string) => {
+  switch (status) {
+    case 'todo':
+    case 'in_progress':
+    case 'completed':
+    case 'cancelled':
+      return status;
+    case 'open':
+    case 'assigned':
+    case 'review':
+      return 'todo';
+    case 'failed':
+      return 'cancelled';
+    default:
+      return undefined;
+  }
+};
+
+const workflowStatusExpr = `COALESCE(workflow_status,
+  CASE
+    WHEN status = 'completed' THEN 'completed'
+    WHEN status = 'in_progress' THEN 'in_progress'
+    WHEN status IN ('failed', 'cancelled') THEN 'cancelled'
+    ELSE 'todo'
+  END
+)`;
+
 router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const { limit, offset } = getPaginationParams(req.query);
-    const { company_id, project_id, assigned_to, status } = req.query;
+    const { limit, offset, page } = getPaginationParams(req.query);
+    const { project_id, assigned_to } = req.query;
+    const requestedStatus = normalizeIncomingStatus(req.query.status as string | undefined);
 
-    let queryStr = 'SELECT * FROM deo.tasks WHERE company_id = $1';
+    let queryStr = `SELECT *, ${workflowStatusExpr} AS workflow_status_normalized FROM deo.tasks WHERE company_id = $1`;
     const params: any[] = [req.user.company_id];
 
     if (project_id) {
@@ -35,9 +63,9 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
       params.push(assigned_to);
     }
 
-    if (status) {
-      queryStr += ` AND status = $${params.length + 1}`;
-      params.push(status);
+    if (requestedStatus) {
+      queryStr += ` AND ${workflowStatusExpr} = $${params.length + 1}`;
+      params.push(requestedStatus);
     }
 
     queryStr += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
@@ -47,7 +75,7 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
 
     res.json({
       data: result.rows,
-      pagination: { page: Math.floor(offset / limit) + 1, limit, total: result.rows.length },
+      pagination: { page, limit, total: result.rows.length },
     });
   } catch (error) {
     console.error('List tasks error', error);
@@ -61,7 +89,7 @@ router.post('/', authMiddleware, async (req: AuditedRequest, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const { title, description, project_id, priority, due_date, estimated_hours } = req.body;
+    const { title, description, project_id, priority, due_date, estimated_hours, assigned_to } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: 'Title is required' });
@@ -70,18 +98,18 @@ router.post('/', authMiddleware, async (req: AuditedRequest, res: Response) => {
     const taskId = uuidv4();
 
     await dbQuery(
-      `INSERT INTO deo.tasks (id, company_id, project_id, title, description, status, priority, created_by, due_date, estimated_hours, progress_percentage, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0, NOW(), NOW())`,
-      [taskId, req.user.company_id, project_id || null, title, description || null, 'open', priority || 'medium', req.user.id, due_date || null, estimated_hours || null]
+      `INSERT INTO deo.tasks (id, company_id, project_id, title, description, status, workflow_status, priority, created_by, assigned_to, due_date, estimated_hours, progress_percentage, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0, NOW(), NOW())`,
+      [taskId, req.user.company_id, project_id || null, title, description || null, 'todo', 'todo', priority || 'medium', req.user.id, assigned_to || null, due_date || null, estimated_hours || null]
     );
 
     req.auditData = {
       entity_type: 'task',
       entity_id: taskId,
-      new_values: { title, description, project_id, priority },
+      new_values: { title, description, project_id, priority, workflow_status: 'todo' },
     };
 
-    const result = await dbQuery('SELECT * FROM deo.tasks WHERE id = $1', [taskId]);
+    const result = await dbQuery(`SELECT *, ${workflowStatusExpr} AS workflow_status_normalized FROM deo.tasks WHERE id = $1`, [taskId]);
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -97,7 +125,7 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     }
 
     const result = await dbQuery(
-      'SELECT * FROM deo.tasks WHERE id = $1 AND company_id = $2',
+      `SELECT *, ${workflowStatusExpr} AS workflow_status_normalized FROM deo.tasks WHERE id = $1 AND company_id = $2`,
       [req.params.id, req.user.company_id]
     );
 
@@ -126,7 +154,7 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
     }
 
     const oldTask = oldResult.rows[0];
-    const { title, description, status, priority, assigned_to, due_date, progress_percentage } = req.body;
+    const { title, description, status, priority, assigned_to, due_date, progress_percentage, project_id } = req.body;
 
     const updates: string[] = [];
     const values: any[] = [];
@@ -138,10 +166,6 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
     if (description !== undefined) {
       updates.push(`description = $${values.length + 1}`);
       values.push(description);
-    }
-    if (status !== undefined) {
-      updates.push(`status = $${values.length + 1}`);
-      values.push(status);
     }
     if (priority !== undefined) {
       updates.push(`priority = $${values.length + 1}`);
@@ -155,9 +179,21 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
       updates.push(`due_date = $${values.length + 1}`);
       values.push(due_date);
     }
+    if (project_id !== undefined) {
+      updates.push(`project_id = $${values.length + 1}`);
+      values.push(project_id);
+    }
     if (progress_percentage !== undefined) {
       updates.push(`progress_percentage = $${values.length + 1}`);
       values.push(progress_percentage);
+    }
+
+    const normalizedStatus = normalizeIncomingStatus(status);
+    if (normalizedStatus !== undefined) {
+      updates.push(`status = $${values.length + 1}`);
+      values.push(normalizedStatus);
+      updates.push(`workflow_status = $${values.length + 1}`);
+      values.push(normalizedStatus);
     }
 
     if (updates.length === 0) {
@@ -168,7 +204,6 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
     values.push(taskId, req.user.company_id);
 
     const queryStr = `UPDATE deo.tasks SET ${updates.join(', ')} WHERE id = $${values.length - 1} AND company_id = $${values.length} RETURNING *`;
-
     const result = await dbQuery(queryStr, values);
 
     req.auditData = {
@@ -224,8 +259,8 @@ router.post('/:id/pick', authMiddleware, async (req: AuditedRequest, res: Respon
     const taskId = req.params.id;
 
     const result = await dbQuery(
-      `UPDATE deo.tasks SET status = $1, assigned_to = $2, updated_at = NOW() WHERE id = $3 AND company_id = $4 RETURNING *`,
-      ['assigned', req.user.id, taskId, req.user.company_id]
+      `UPDATE deo.tasks SET status = $1, workflow_status = $2, assigned_to = $3, updated_at = NOW() WHERE id = $4 AND company_id = $5 RETURNING *`,
+      ['todo', 'todo', req.user.id, taskId, req.user.company_id]
     );
 
     if (result.rows.length === 0) {
@@ -235,7 +270,7 @@ router.post('/:id/pick', authMiddleware, async (req: AuditedRequest, res: Respon
     req.auditData = {
       entity_type: 'task',
       entity_id: taskId,
-      new_values: { status: 'assigned', assigned_to: req.user.id },
+      new_values: { status: 'todo', assigned_to: req.user.id },
     };
 
     res.json(result.rows[0]);
@@ -259,8 +294,8 @@ router.post('/:id/progress', authMiddleware, async (req: AuditedRequest, res: Re
     }
 
     const result = await dbQuery(
-      `UPDATE deo.tasks SET status = $1, progress_percentage = $2, updated_at = NOW() WHERE id = $3 AND company_id = $4 RETURNING *`,
-      ['in_progress', progress_percentage, taskId, req.user.company_id]
+      `UPDATE deo.tasks SET status = $1, workflow_status = $2, progress_percentage = $3, updated_at = NOW() WHERE id = $4 AND company_id = $5 RETURNING *`,
+      ['in_progress', 'in_progress', progress_percentage, taskId, req.user.company_id]
     );
 
     if (result.rows.length === 0) {
@@ -270,7 +305,7 @@ router.post('/:id/progress', authMiddleware, async (req: AuditedRequest, res: Re
     req.auditData = {
       entity_type: 'task',
       entity_id: taskId,
-      new_values: { progress_percentage, notes },
+      new_values: { progress_percentage, notes, status: 'in_progress' },
     };
 
     res.json(result.rows[0]);
@@ -289,8 +324,8 @@ router.post('/:id/complete', authMiddleware, async (req: AuditedRequest, res: Re
     const taskId = req.params.id;
 
     const result = await dbQuery(
-      `UPDATE deo.tasks SET status = $1, progress_percentage = 100, updated_at = NOW() WHERE id = $2 AND company_id = $3 RETURNING *`,
-      ['completed', taskId, req.user.company_id]
+      `UPDATE deo.tasks SET status = $1, workflow_status = $2, progress_percentage = 100, updated_at = NOW() WHERE id = $3 AND company_id = $4 RETURNING *`,
+      ['completed', 'completed', taskId, req.user.company_id]
     );
 
     if (result.rows.length === 0) {
@@ -320,8 +355,8 @@ router.post('/:id/fail', authMiddleware, async (req: AuditedRequest, res: Respon
     const taskId = req.params.id;
 
     const result = await dbQuery(
-      `UPDATE deo.tasks SET status = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3 RETURNING *`,
-      ['failed', taskId, req.user.company_id]
+      `UPDATE deo.tasks SET status = $1, workflow_status = $2, updated_at = NOW() WHERE id = $3 AND company_id = $4 RETURNING *`,
+      ['cancelled', 'cancelled', taskId, req.user.company_id]
     );
 
     if (result.rows.length === 0) {
@@ -331,7 +366,7 @@ router.post('/:id/fail', authMiddleware, async (req: AuditedRequest, res: Respon
     req.auditData = {
       entity_type: 'task',
       entity_id: taskId,
-      new_values: { status: 'failed', reason },
+      new_values: { status: 'cancelled', reason },
     };
 
     res.json(result.rows[0]);
@@ -350,8 +385,8 @@ router.post('/:id/request-review', authMiddleware, async (req: AuditedRequest, r
     const taskId = req.params.id;
 
     const result = await dbQuery(
-      `UPDATE deo.tasks SET status = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3 RETURNING *`,
-      ['review', taskId, req.user.company_id]
+      `UPDATE deo.tasks SET status = $1, workflow_status = $2, updated_at = NOW() WHERE id = $3 AND company_id = $4 RETURNING *`,
+      ['in_progress', 'in_progress', taskId, req.user.company_id]
     );
 
     if (result.rows.length === 0) {
@@ -361,7 +396,7 @@ router.post('/:id/request-review', authMiddleware, async (req: AuditedRequest, r
     req.auditData = {
       entity_type: 'task',
       entity_id: taskId,
-      new_values: { status: 'review' },
+      new_values: { status: 'in_progress', review_required: true },
     };
 
     res.json(result.rows[0]);
