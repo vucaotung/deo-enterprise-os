@@ -9,6 +9,7 @@ import { connectRedis } from './redis';
 import authRoutes from './routes/auth';
 import dashboardRoutes from './routes/dashboard';
 import tasksRoutes from './routes/tasks';
+import projectsRoutes from './routes/projects';
 import expensesRoutes from './routes/expenses';
 import clientsRoutes from './routes/clients';
 import businessLinesRoutes from './routes/business-lines';
@@ -66,6 +67,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', authMiddleware, dashboardRoutes);
 app.use('/api/tasks', authMiddleware, tasksRoutes);
+app.use('/api/projects', authMiddleware, projectsRoutes);
 app.use('/api/expenses', authMiddleware, expensesRoutes);
 app.use('/api/clients', authMiddleware, clientsRoutes);
 app.use('/api/categories', authMiddleware, businessLinesRoutes);

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { ArrowLeft, ListFilter, Plus, Rows3, SquareKanban } from 'lucide-react';
 import type { Project, Task } from '@/types';
+import { getProject, getTasks } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { Badge } from '@/components/Badge';
 import { formatDate } from '@/lib/utils';
@@ -182,18 +183,40 @@ export const ProjectTasks = () => {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [statusFilter, setStatusFilter] = useState<'all' | Task['status']>('all');
-
-  const project = id ? mockProjects[id] : undefined;
+  const [project, setProject] = useState<Project | undefined>(id ? mockProjects[id] : undefined);
+  const [tasks, setTasks] = useState<Task[]>(mockTasks.filter((task) => task.project_id === id));
 
   useEffect(() => {
     setPageTitle(project ? `${project.name} · Tasks` : 'Project tasks');
   }, [project, setPageTitle]);
 
+  useEffect(() => {
+    const loadRuntimeData = async () => {
+      if (!id) return;
+
+      try {
+        const [projectData, taskData] = await Promise.all([
+          getProject(id),
+          getTasks({ project_id: id }),
+        ]);
+
+        setProject(projectData);
+        if (taskData.length > 0) {
+          setTasks(taskData);
+        }
+      } catch (error) {
+        console.warn('Falling back to mock project task data', error);
+      }
+    };
+
+    loadRuntimeData();
+  }, [id]);
+
   const projectTasks = useMemo(() => {
-    const rows = mockTasks.filter((task) => task.project_id === id);
+    const rows = tasks.filter((task) => task.project_id === id);
     if (statusFilter === 'all') return rows;
     return rows.filter((task) => task.status === statusFilter);
-  }, [id, statusFilter]);
+  }, [id, statusFilter, tasks]);
 
   const groupedTasks = useMemo(() => {
     return {

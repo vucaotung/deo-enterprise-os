@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { FolderKanban, Plus, Search } from 'lucide-react';
 import type { Project, ProjectStatus } from '@/types';
+import { getProjects } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { Badge } from '@/components/Badge';
 import { formatDate } from '@/lib/utils';
@@ -88,13 +89,32 @@ const statusVariantMap: Record<ProjectStatus, 'info' | 'warning' | 'success' | '
 export const Projects = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
   const navigate = useNavigate();
-  const [projects] = useState<Project[]>(mockProjects);
+  const [projects, setProjects] = useState<Project[]>(mockProjects);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectStatus>('all');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     setPageTitle('Projects');
   }, [setPageTitle]);
+
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        setIsLoading(true);
+        const data = await getProjects();
+        if (data.length > 0) {
+          setProjects(data);
+        }
+      } catch (error) {
+        console.warn('Falling back to mock projects', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProjects();
+  }, []);
 
   const filteredProjects = useMemo(() => {
     return projects.filter((project) => {
@@ -186,7 +206,12 @@ export const Projects = () => {
             </select>
           </div>
 
-          {filteredProjects.length === 0 ? (
+          {isLoading ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
+              <h3 className="text-lg font-semibold text-slate-900">Đang tải projects...</h3>
+              <p className="text-sm text-slate-600 mt-2">Dẹo đang thử lấy runtime data từ API.</p>
+            </div>
+          ) : filteredProjects.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
               <FolderKanban size={32} className="mx-auto mb-3 text-slate-400" />
               <h3 className="text-lg font-semibold text-slate-900">Chưa có project phù hợp</h3>

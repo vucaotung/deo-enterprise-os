@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { ListFilter, Plus, Rows3, SquareKanban } from 'lucide-react';
 import type { Task } from '@/types';
+import { getTasks } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { SlidePanel } from '@/components/SlidePanel';
 import { Modal } from '@/components/Modal';
@@ -125,11 +126,26 @@ export const Tasks = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | Task['status']>('all');
-  const [tasks] = useState<Task[]>(mockTasks);
+  const [tasks, setTasks] = useState<Task[]>(mockTasks);
 
   useEffect(() => {
     setPageTitle('Công việc');
   }, [setPageTitle]);
+
+  useEffect(() => {
+    const loadTasks = async () => {
+      try {
+        const data = await getTasks();
+        if (data.length > 0) {
+          setTasks(data);
+        }
+      } catch (error) {
+        console.warn('Falling back to mock tasks', error);
+      }
+    };
+
+    loadTasks();
+  }, []);
 
   const filteredTasks = useMemo(() => {
     if (statusFilter === 'all') return tasks;

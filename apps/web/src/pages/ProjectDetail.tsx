@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { ArrowLeft, Calendar, CircleAlert, ClipboardList, NotebookText, UserRound } from 'lucide-react';
 import type { Project } from '@/types';
+import { getProject } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { Badge } from '@/components/Badge';
 import { formatDate } from '@/lib/utils';
@@ -127,12 +128,26 @@ export const ProjectDetail = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
   const { id } = useParams();
   const navigate = useNavigate();
-
-  const project = id ? mockProjects[id] : undefined;
+  const [project, setProject] = useState<Project | undefined>(id ? mockProjects[id] : undefined);
 
   useEffect(() => {
     setPageTitle(project ? project.name : 'Project detail');
   }, [project, setPageTitle]);
+
+  useEffect(() => {
+    const loadProject = async () => {
+      if (!id) return;
+
+      try {
+        const data = await getProject(id);
+        setProject(data);
+      } catch (error) {
+        console.warn('Falling back to mock project detail', error);
+      }
+    };
+
+    loadProject();
+  }, [id]);
 
   if (!project) {
     return (
