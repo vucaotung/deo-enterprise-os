@@ -26,7 +26,23 @@ Back office V1 nên đủ để làm được 2 loại flow chính:
 
 ---
 
-## 2. Deliverables chính
+## 2. Sơ đồ module / implementation path
+
+```text
+apps/api/src/
+  constants/backoffice.ts
+  routes/backoffice.ts
+  services/backoffice-registry.service.ts
+  services/backoffice-files.service.ts
+  services/backoffice-folder.service.ts
+  services/backoffice-dispatch.service.ts
+infrastructure/postgres/
+  006_backoffice_foundation.sql
+```
+
+---
+
+## 3. Deliverables chính
 
 ### Architecture / definition
 - workflow registry cho back office
