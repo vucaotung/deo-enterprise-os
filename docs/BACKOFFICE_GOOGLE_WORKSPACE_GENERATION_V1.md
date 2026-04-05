@@ -323,45 +323,53 @@ Work OS lưu:
 ## Nguyên tắc đặt tên folder
 Sếp yêu cầu:
 - **tiếng Việt không dấu**
-- dùng **underscore `_`** để tách từ
+- dùng **space** thay cho underscore trong phần tên
 - vẫn phải **user-friendly**
+- giữ prefix thứ tự ở đầu để dễ nhìn và dễ sort
 
-### Dẹo đề xuất quy tắc
+### Dẹo chốt lại quy tắc
 - dùng **tiếng Việt không dấu, ngắn gọn, quen mắt**
 - tránh viết quá kỹ thuật hoặc quá dài
 - cho phép thêm **prefix số** để giữ thứ tự nhìn dễ
-- chỉ dùng chữ thường + số + `_`
+- cấu trúc tên folder theo dạng:
+  - `<prefix_thu_tu>_<ten ngan khong dau>`
+- nghĩa là:
+  - phần `prefix_thu_tu` đứng trước
+  - giữa prefix và phần tên dùng **1 dấu gạch dưới `_`**
+  - bên trong phần tên dùng **space**, không dùng `_`
 - không dùng dấu tiếng Việt, không ký tự lạ
+- không dùng nhiều khoảng trắng thừa
+- không viết HOA toàn bộ nếu không cần
 
 ---
 
 ## Cấu trúc root gợi ý
 
 ```text
-Deo_Workspace/
-  00_dieu_hanh
+Deo Workspace/
+  00_dieu hanh
   01_templates
-  02_ho_so_theo_mau
-  03_ho_so_theo_yeu_cau
-  04_du_an
-  05_khach_hang
-  06_tai_chinh
-  07_bao_cao
-  08_luu_tam
-  09_luu_tru
+  02_ho so theo mau
+  03_ho so theo yeu cau
+  04_du an
+  05_khach hang
+  06_tai chinh
+  07_bao cao
+  08_luu tam
+  09_luu tru
 ```
 
 ### Giải thích nhanh
-- `00_dieu_hanh` → tài liệu điều hành nội bộ, chính sách, quy chuẩn
+- `00_dieu hanh` → tài liệu điều hành nội bộ, chính sách, quy chuẩn
 - `01_templates` → kho template gốc
-- `02_ho_so_theo_mau` → file tạo ra từ template
-- `03_ho_so_theo_yeu_cau` → file mới sinh từ chat/context
-- `04_du_an` → tài liệu theo project
-- `05_khach_hang` → tài liệu theo khách hàng/account
-- `06_tai_chinh` → báo cáo, bảng chi phí, đối soát
-- `07_bao_cao` → weekly/monthly/management reports
-- `08_luu_tam` → file tạm, draft chưa phân loại
-- `09_luu_tru` → hồ sơ đã khóa/đóng/archive
+- `02_ho so theo mau` → file tạo ra từ template
+- `03_ho so theo yeu cau` → file mới sinh từ chat/context
+- `04_du an` → tài liệu theo project
+- `05_khach hang` → tài liệu theo khách hàng/account
+- `06_tai chinh` → báo cáo, bảng chi phí, đối soát
+- `07_bao cao` → weekly/monthly/management reports
+- `08_luu tam` → file tạm, draft chưa phân loại
+- `09_luu tru` → hồ sơ đã khóa/đóng/archive
 
 ---
 
@@ -371,60 +379,60 @@ Deo_Workspace/
 ```text
 01_templates/
   docs/
-    hop_dong/
-    bao_gia/
-    cong_van/
-    bien_ban/
-    de_xuat/
+    hop dong/
+    bao gia/
+    cong van/
+    bien ban/
+    de xuat/
   sheets/
-    theo_doi_tien_do/
-    tong_hop_chi_phi/
-    bao_cao_tuan/
+    theo doi tien do/
+    tong hop chi phi/
+    bao cao tuan/
 ```
 
-### 02_ho_so_theo_mau
+### 02_ho so theo mau
 ```text
-02_ho_so_theo_mau/
+02_ho so theo mau/
   2026/
-    hop_dong/
-    bao_gia/
-    cong_van/
-    bien_ban/
-    bao_cao/
+    hop dong/
+    bao gia/
+    cong van/
+    bien ban/
+    bao cao/
 ```
 
-### 03_ho_so_theo_yeu_cau
+### 03_ho so theo yeu cau
 ```text
-03_ho_so_theo_yeu_cau/
+03_ho so theo yeu cau/
   2026/
-    de_xuat/
-    ghi_nho/
-    ke_hoach/
-    bien_ban_hop/
-    tai_lieu_tong_hop/
-    bang_theo_doi/
+    de xuat/
+    ghi nho/
+    ke hoach/
+    bien ban hop/
+    tai lieu tong hop/
+    bang theo doi/
 ```
 
-### 04_du_an
+### 04_du an
 ```text
-04_du_an/
-  du_an_<ma_hoac_ten_ngan>/
-    01_tai_lieu_chung/
-    02_hop_dong_bao_gia/
-    03_ke_hoach_tien_do/
-    04_bien_ban_ghi_nho/
-    05_file_ban_giao/
-    99_luu_tru/
+04_du an/
+  du an <ma hoac ten ngan>/
+    01_tai lieu chung/
+    02_hop dong bao gia/
+    03_ke hoach tien do/
+    04_bien ban ghi nho/
+    05_file ban giao/
+    99_luu tru/
 ```
 
-### 05_khach_hang
+### 05_khach hang
 ```text
-05_khach_hang/
-  <ten_khach_hang_slug>/
-    01_thong_tin_chung/
-    02_hop_dong_bao_gia/
-    03_tai_lieu_trao_doi/
-    99_luu_tru/
+05_khach hang/
+  <ten khach hang slug>/
+    01_thong tin chung/
+    02_hop dong bao gia/
+    03_tai lieu trao doi/
+    99_luu tru/
 ```
 
 ---
@@ -433,21 +441,28 @@ Deo_Workspace/
 
 ## Công thức
 ```text
-<prefix_thu_tu>_<ten_ngan_khong_dau>
+<prefix_thu_tu>_<ten ngan khong dau>
 ```
 
+### Giải thích
+- prefix đứng trước để giữ thứ tự
+- sau prefix có **1 dấu `_`**
+- phần tên phía sau dùng **space**, không dùng `_`
+
 ### Ví dụ tốt
+- `00_dieu hanh`
 - `01_templates`
-- `02_ho_so_theo_mau`
-- `03_ho_so_theo_yeu_cau`
-- `04_du_an`
-- `05_khach_hang`
-- `99_luu_tru`
+- `02_ho so theo mau`
+- `03_ho so theo yeu cau`
+- `04_du an`
+- `05_khach hang`
+- `99_luu tru`
 
 ### Không nên
 - `Tài liệu mới`
 - `Hồ sơ khách hàng ABC!!!`
 - `Project A Final New`
+- `02_ho_so_theo_mau`
 - `aaa`
 
 ---
@@ -468,15 +483,21 @@ Tên file phải giúp user nhìn là biết:
 
 ### Công thức chung
 ```text
-<yyyy-mm-dd>_<loai_tai_lieu>_<doi_tuong_chinh>_<mo_ta_ngan>_<trang_thai_or_version>
+<yyyy.mm.dd>_<loai tai lieu>_<doi tuong chinh>_<mo ta ngan>_<trang thai or version>
 ```
 
+### Giải thích
+- phần ngày dùng dấu chấm: `yyyy.mm.dd`
+- giữa các block dùng `_`
+- bên trong từng block dùng **space**, không dùng `_`
+- toàn bộ không dấu, ưu tiên chữ thường
+
 ### Ví dụ
-- `2026-04-05_hop_dong_cong_ty_abc_ban_nhap_v1`
-- `2026-04-05_bao_gia_khach_hang_xyz_goi_dich_vu_v2`
-- `2026-04-05_de_xuat_trien_khai_he_thong_a_draft_v1`
-- `2026-04-05_bien_ban_hop_du_an_delta_final_v1`
-- `2026-04-05_bang_theo_doi_tien_do_du_an_delta_v1`
+- `2026.04.05_hop dong_cong ty abc_ban nhap_v1`
+- `2026.04.05_bao gia_khach hang xyz_goi dich vu_v2`
+- `2026.04.05_de xuat_he thong quan tri_draft_v1`
+- `2026.04.05_bien ban hop_du an delta_final_v1`
+- `2026.04.05_bang theo doi_du an delta_v1`
 
 ---
 
