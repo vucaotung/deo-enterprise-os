@@ -23,6 +23,12 @@ import agentJobsRoutes from './routes/agent-jobs';
 import telegramRoutes from './routes/telegram';
 import backofficeRoutes from './routes/backoffice';
 
+// PM Module routes
+import pmDashboardRoutes from './routes/pm-dashboard';
+import workersRoutes from './routes/workers';
+import approvalsRoutes from './routes/approvals';
+import activityRoutes from './routes/activity';
+
 import { auditMiddleware } from './middleware/audit';
 import { authMiddleware } from './middleware/auth';
 
@@ -81,6 +87,12 @@ app.use('/api/leads', authMiddleware, leadsRoutes);
 app.use('/api/jobs', agentJobsRoutes);
 app.use('/api/telegram', telegramRoutes);
 app.use('/api/backoffice', backofficeRoutes);
+
+// PM Module
+app.use('/api/pm/dashboard', pmDashboardRoutes);
+app.use('/api/workers', workersRoutes);
+app.use('/api/approvals', approvalsRoutes);
+app.use('/api/activity', activityRoutes);
 
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);

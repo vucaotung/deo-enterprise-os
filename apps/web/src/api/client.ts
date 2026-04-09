@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Task, Expense, Client, DashboardSummary, LoginResponse, Project } from '../types';
+import type { Task, Expense, Client, DashboardSummary, LoginResponse, Project, Worker, Approval, PMDashboard } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -205,6 +205,94 @@ export const updateClient = async (id: string, updates: Partial<Client>): Promis
 
 export const deleteClient = async (id: string): Promise<void> => {
   await api.delete(`/clients/${id}`);
+};
+
+// ============================================================
+// PM Module API functions
+// ============================================================
+
+export const getPMDashboard = async (): Promise<PMDashboard> => {
+  const { data } = await api.get('/pm/dashboard');
+  return data;
+};
+
+export const getWorkers = async (filters?: {
+  worker_type?: string;
+  status?: string;
+  search?: string;
+}): Promise<Worker[]> => {
+  const { data } = await api.get('/workers', { params: filters });
+  return unwrapList<Worker>(data);
+};
+
+export const getWorker = async (id: string): Promise<Worker> => {
+  const { data } = await api.get(`/workers/${id}`);
+  return data;
+};
+
+export const getApprovals = async (filters?: {
+  status?: string;
+  assigned_to?: string;
+  project_id?: string;
+}): Promise<Approval[]> => {
+  const { data } = await api.get('/approvals', { params: filters });
+  return unwrapList<Approval>(data);
+};
+
+export const createApproval = async (approval: Partial<Approval>): Promise<Approval> => {
+  const { data } = await api.post('/approvals', approval);
+  return data;
+};
+
+export const decideApproval = async (
+  id: string,
+  decision: { status: 'approved' | 'rejected'; decision_note?: string }
+): Promise<Approval> => {
+  const { data } = await api.post(`/approvals/${id}/decide`, decision);
+  return data;
+};
+
+export const getActivity = async (filters?: {
+  project_id?: string;
+  entity_type?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ data: any[]; pagination: any }> => {
+  const { data } = await api.get('/activity', { params: filters });
+  return data;
+};
+
+export const createProject = async (project: Partial<Project>): Promise<Project> => {
+  const { data } = await api.post('/projects', project);
+  return normalizeProject(data);
+};
+
+export const updateProject = async (id: string, updates: Partial<Project>): Promise<Project> => {
+  const { data } = await api.patch(`/projects/${id}`, updates);
+  return normalizeProject(data);
+};
+
+export const deleteProject = async (id: string): Promise<void> => {
+  await api.delete(`/projects/${id}`);
+};
+
+export const getProjectMembers = async (projectId: string): Promise<any[]> => {
+  const { data } = await api.get(`/projects/${projectId}/members`);
+  return unwrapList(data);
+};
+
+export const addProjectMember = async (projectId: string, body: { worker_id: string; membership_role?: string }): Promise<any> => {
+  const { data } = await api.post(`/projects/${projectId}/members`, body);
+  return data;
+};
+
+export const removeProjectMember = async (projectId: string, memberId: string): Promise<void> => {
+  await api.delete(`/projects/${projectId}/members/${memberId}`);
+};
+
+export const getProjectTasks = async (projectId: string, filters?: { status?: string }): Promise<Task[]> => {
+  const { data } = await api.get(`/projects/${projectId}/tasks`, { params: filters });
+  return unwrapList<any>(data).map(normalizeTask);
 };
 
 export default api;
