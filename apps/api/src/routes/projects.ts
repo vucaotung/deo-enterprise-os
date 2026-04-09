@@ -288,11 +288,21 @@ router.delete('/:id', authMiddleware, async (req: AuditedRequest, res: Response)
 
 // ============================================================
 // GET /api/projects/:id/members — List project members
+// FIX: Join projects to enforce company_id scoping (tenant safety)
 // ============================================================
 router.get('/:id/members', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    // Verify project belongs to the user's company
+    const projectCheck = await dbQuery(
+      `SELECT id FROM deo.projects WHERE id = $1 AND company_id = $2`,
+      [req.params.id, req.user.company_id]
+    );
+    if (projectCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Project not found' });
     }
 
     const result = await dbQuery(
@@ -313,6 +323,7 @@ router.get('/:id/members', authMiddleware, async (req: AuthRequest, res: Respons
 
 // ============================================================
 // POST /api/projects/:id/members — Add member
+// FIX: Validate project + worker belong to the same company
 // ============================================================
 router.post('/:id/members', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
@@ -324,6 +335,24 @@ router.post('/:id/members', authMiddleware, async (req: AuthRequest, res: Respon
 
     if (!worker_id) {
       return res.status(400).json({ error: 'worker_id is required' });
+    }
+
+    // Verify project belongs to the user's company
+    const projectCheck = await dbQuery(
+      `SELECT id FROM deo.projects WHERE id = $1 AND company_id = $2`,
+      [req.params.id, req.user.company_id]
+    );
+    if (projectCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Verify worker belongs to the same company
+    const workerCheck = await dbQuery(
+      `SELECT id FROM deo.workers WHERE id = $1 AND company_id = $2`,
+      [worker_id, req.user.company_id]
+    );
+    if (workerCheck.rows.length === 0) {
+      return res.status(400).json({ error: 'Worker not found in this company' });
     }
 
     const memberId = uuidv4();
@@ -357,11 +386,21 @@ router.post('/:id/members', authMiddleware, async (req: AuthRequest, res: Respon
 
 // ============================================================
 // DELETE /api/projects/:id/members/:memberId — Remove member
+// FIX: Validate project belongs to the user's company
 // ============================================================
 router.delete('/:id/members/:memberId', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    // Verify project belongs to the user's company
+    const projectCheck = await dbQuery(
+      `SELECT id FROM deo.projects WHERE id = $1 AND company_id = $2`,
+      [req.params.id, req.user.company_id]
+    );
+    if (projectCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Project not found' });
     }
 
     const result = await dbQuery(

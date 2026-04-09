@@ -8,6 +8,18 @@ import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 
+/**
+ * Resolve the authenticated user's worker_id.
+ * Returns null if the user has no corresponding worker row.
+ */
+async function resolveWorkerId(userId: string, companyId: string): Promise<string | null> {
+  const result = await dbQuery(
+    `SELECT id FROM deo.workers WHERE user_id = $1 AND company_id = $2 LIMIT 1`,
+    [userId, companyId]
+  );
+  return result.rows.length > 0 ? result.rows[0].id : null;
+}
+
 // ============================================================
 // GET /api/approvals — List with filters
 // ============================================================
@@ -103,6 +115,7 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
 
 // ============================================================
 // POST /api/approvals — Create approval request
+// FIX: Bind requested_by to the authenticated user's worker identity
 // ============================================================
 router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
@@ -110,10 +123,36 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const { entity_type, entity_id, assigned_to, requested_by, project_id, due_at, metadata } = req.body;
+    const { entity_type, entity_id, assigned_to, project_id, due_at, metadata } = req.body;
 
-    if (!entity_type || !entity_id || !assigned_to || !requested_by) {
-      return res.status(400).json({ error: 'entity_type, entity_id, assigned_to, and requested_by are required' });
+    if (!entity_type || !entity_id || !assigned_to) {
+      return res.status(400).json({ error: 'entity_type, entity_id, and assigned_to are required' });
+    }
+
+    // Resolve the authenticated user's worker_id — do NOT trust body params
+    const requesterId = await resolveWorkerId(req.user.id, req.user.company_id);
+    if (!requesterId) {
+      return res.status(403).json({ error: 'You do not have a worker profile in this company' });
+    }
+
+    // Validate that assigned_to worker belongs to the same company
+    const assigneeCheck = await dbQuery(
+      `SELECT id FROM deo.workers WHERE id = $1 AND company_id = $2`,
+      [assigned_to, req.user.company_id]
+    );
+    if (assigneeCheck.rows.length === 0) {
+      return res.status(400).json({ error: 'Assigned worker not found in this company' });
+    }
+
+    // If project_id provided, validate it belongs to the same company
+    if (project_id) {
+      const projectCheck = await dbQuery(
+        `SELECT id FROM deo.projects WHERE id = $1 AND company_id = $2`,
+        [project_id, req.user.company_id]
+      );
+      if (projectCheck.rows.length === 0) {
+        return res.status(400).json({ error: 'Project not found in this company' });
+      }
     }
 
     const approvalId = uuidv4();
@@ -122,7 +161,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
       `INSERT INTO deo.approvals (id, entity_type, entity_id, requested_by, assigned_to, project_id, company_id, due_at, metadata)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [approvalId, entity_type, entity_id, requested_by, assigned_to,
+      [approvalId, entity_type, entity_id, requesterId, assigned_to,
        project_id || null, req.user.company_id, due_at || null,
        JSON.stringify(metadata || {})]
     );
@@ -131,7 +170,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     await dbQuery(
       `INSERT INTO deo.activity_logs (action, actor_type, actor_id, entity_type, entity_id, project_id, company_id, summary)
        VALUES ('approval_requested', 'human', $1, $2, $3, $4, $5, $6)`,
-      [requested_by, entity_type, entity_id, project_id || null, req.user.company_id, 'Approval requested']
+      [requesterId, entity_type, entity_id, project_id || null, req.user.company_id, 'Approval requested']
     );
 
     res.status(201).json(result.rows[0]);
@@ -143,6 +182,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
 
 // ============================================================
 // POST /api/approvals/:id/decide — Approve or reject
+// FIX: Enforce that the authenticated user IS the assigned approver
 // ============================================================
 router.post('/:id/decide', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
@@ -157,31 +197,60 @@ router.post('/:id/decide', authMiddleware, async (req: AuthRequest, res: Respons
       return res.status(400).json({ error: 'Status must be "approved" or "rejected"' });
     }
 
-    const result = await dbQuery(
-      `UPDATE deo.approvals
-       SET status = $1, decision_note = $2, decided_at = NOW(), updated_at = NOW()
-       WHERE id = $3 AND status = 'pending' AND company_id = $4
-       RETURNING *`,
-      [status, decision_note || null, id, req.user.company_id]
+    // Resolve the authenticated user's worker_id
+    const deciderId = await resolveWorkerId(req.user.id, req.user.company_id);
+    if (!deciderId) {
+      return res.status(403).json({ error: 'You do not have a worker profile in this company' });
+    }
+
+    // Only the assigned approver (or an owner_admin) may decide
+    const approval = await dbQuery(
+      `SELECT a.* FROM deo.approvals a
+       WHERE a.id = $1 AND a.status = 'pending' AND a.company_id = $2`,
+      [id, req.user.company_id]
     );
 
-    if (result.rows.length === 0) {
+    if (approval.rows.length === 0) {
       return res.status(404).json({ error: 'Approval not found or already decided' });
     }
 
-    const approval = result.rows[0];
+    const row = approval.rows[0];
+
+    // Check: is the user the assigned approver, or do they hold owner_admin role?
+    if (row.assigned_to !== deciderId) {
+      const isAdmin = await dbQuery(
+        `SELECT 1 FROM deo.worker_roles wr
+         JOIN deo.roles r ON r.id = wr.role_id
+         WHERE wr.worker_id = $1 AND r.key = 'owner_admin'
+         LIMIT 1`,
+        [deciderId]
+      );
+      if (isAdmin.rows.length === 0) {
+        return res.status(403).json({ error: 'Only the assigned approver or an admin may decide this approval' });
+      }
+    }
+
+    const result = await dbQuery(
+      `UPDATE deo.approvals
+       SET status = $1, decision_note = $2, decided_at = NOW(), decided_by = $3, updated_at = NOW()
+       WHERE id = $4
+       RETURNING *`,
+      [status, decision_note || null, deciderId, id]
+    );
+
+    const updated = result.rows[0];
 
     // Log activity
     const action = status === 'approved' ? 'approval_approved' : 'approval_rejected';
     await dbQuery(
       `INSERT INTO deo.activity_logs (action, actor_type, actor_id, entity_type, entity_id, project_id, company_id, summary)
        VALUES ($1, 'human', $2, $3, $4, $5, $6, $7)`,
-      [action, approval.assigned_to, approval.entity_type, approval.entity_id,
-       approval.project_id, approval.company_id,
+      [action, deciderId, updated.entity_type, updated.entity_id,
+       updated.project_id, updated.company_id,
        `${status === 'approved' ? 'Approved' : 'Rejected'}${decision_note ? ': ' + decision_note : ''}`]
     );
 
-    res.json(approval);
+    res.json(updated);
   } catch (error) {
     console.error('Decide approval error:', error);
     res.status(500).json({ error: 'Failed to decide approval' });

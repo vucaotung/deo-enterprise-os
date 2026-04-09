@@ -52,7 +52,7 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
            COUNT(*) FILTER (WHERE t.status NOT IN ('completed','cancelled')) AS active_tasks,
            COUNT(*) FILTER (WHERE t.status = 'completed') AS completed_tasks
          FROM deo.tasks t
-         WHERE t.assigned_to = w.user_id
+         WHERE t.assigned_to = COALESCE(w.user_id, w.agent_id)
        ) ts ON TRUE
        ${where}
        ORDER BY w.worker_type ASC, w.display_name ASC`,
@@ -128,20 +128,21 @@ router.get('/:id/tasks', authMiddleware, async (req: AuthRequest, res: Response)
     const { status } = req.query;
 
     const worker = await dbQuery(
-      'SELECT user_id FROM deo.workers WHERE id = $1 AND company_id = $2',
+      'SELECT user_id, agent_id FROM deo.workers WHERE id = $1 AND company_id = $2',
       [id, req.user.company_id]
     );
     if (worker.rows.length === 0) {
       return res.status(404).json({ error: 'Worker not found' });
     }
 
-    const userId = worker.rows[0].user_id;
-    if (!userId) {
-      return res.json({ data: [] }); // AI worker has no tasks via assigned_to
+    // Use user_id for humans, agent_id for AI workers
+    const assigneeId = worker.rows[0].user_id || worker.rows[0].agent_id;
+    if (!assigneeId) {
+      return res.json({ data: [] });
     }
 
     let where = 'WHERE t.assigned_to = $1 AND t.company_id = $2';
-    const params: any[] = [userId, req.user.company_id];
+    const params: any[] = [assigneeId, req.user.company_id];
 
     if (status) {
       where += ` AND t.status = $${params.length + 1}`;

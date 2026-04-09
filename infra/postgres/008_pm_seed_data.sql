@@ -129,13 +129,14 @@ INSERT INTO deo.workers (id, worker_type, display_name, user_id, company_id, rol
 ON CONFLICT (user_id) DO NOTHING;
 
 -- AI workers (link tới agents đã seed ở 005)
+-- FIX: Use agent's company_id so AI workers are visible in tenant-scoped queries
 INSERT INTO deo.workers (id, worker_type, display_name, agent_id, company_id, role_name, status)
 SELECT
     gen_random_uuid(),
     'ai',
     a.display_name,
     a.id,
-    NULL,
+    COALESCE(a.company_id, 'a0000000-0000-0000-0000-000000000001'),
     'AI Agent',
     'active'
 FROM deo.agents a

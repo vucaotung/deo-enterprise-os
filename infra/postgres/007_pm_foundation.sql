@@ -222,6 +222,7 @@ CREATE TABLE IF NOT EXISTS deo.approvals (
     status          VARCHAR(16) NOT NULL DEFAULT 'pending',
     decision_note   TEXT,
     decided_at      TIMESTAMPTZ,
+    decided_by      UUID REFERENCES deo.workers(id) ON DELETE SET NULL,
     due_at          TIMESTAMPTZ,
     project_id      UUID REFERENCES deo.projects(id) ON DELETE SET NULL,
     company_id      UUID REFERENCES deo.companies(id) ON DELETE SET NULL,
