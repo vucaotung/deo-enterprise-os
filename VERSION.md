@@ -1,30 +1,41 @@
-# VERSION
+# Version
 
-## Current Working Version
-**v0.2.3**
+## Current: 1.2.0-dev
+**Branch:** main
+**Date:** April 2026
+**Status:** In Development — Sprint 1 (Infrastructure)
 
-## Version Name
-**Agent Admin Production Bridge**
+---
 
-## Status
-Production demo nội bộ chạy được, nhưng chưa clean hoàn toàn về source-of-truth và orchestration contract.
+## Changelog Summary
 
-## Ý nghĩa của mốc này
-- Production API và dashboard đang usable.
-- Frontend login và task flow đã hoạt động.
-- Agent Admin đã có thể tạo task thật vào production DB.
-- Hệ thống đã vượt qua giai đoạn chỉ có kiến trúc/scaffold.
+### v1.2.0-dev (current)
+- Infrastructure: Google Drive + VPS Brain Hub + Obsidian Vault
+- New: `scripts/setup-brain.sh` — automated brain hub setup
+- New: `scripts/brain-sync.sh` — vault git sync + embed trigger (cron every 5m)
+- New: `scripts/embed-sync.py` — Obsidian vault → ChromaDB vector store
+- New: `infrastructure/postgres/007_brain_gdrive.sql` — brain tables
+- New: `infrastructure/brain/` — ChromaDB config, Obsidian templates
+- Updated: `docker-compose.prod.yml` — ChromaDB service added
+- Updated: `.env.example` — brain, gdrive, openai, chroma vars
+- Updated: `scripts/health-check.sh` — brain services monitoring
+- Docs: `docs/VERSION_1.2_PLAN.md`, `docs/BRAIN_SETUP.md`, `docs/OBSIDIAN_GUIDE.md`
 
-## Chưa đạt ở mốc này
-- `agent-jobs` chưa ổn định như contract kỳ vọng.
-- Local code / production code / agent runtime patch còn drift.
-- Chưa có GitHub repo chính thức.
+### v1.0.0 — April 3, 2026
+- Initial production release
+- Backend API: Express.js + TypeScript (80 endpoints)
+- Frontend: React + Vite + TailwindCSS (9 pages)
+- Database: PostgreSQL 16 (23+ tables)
+- Docker + Cloudflare Tunnel
 
-## Next Target
-**v0.3.0 — Contract Cleanup**
+---
 
-### Mục tiêu của v0.3.0
-- Đồng bộ local ↔ production source.
-- Chuẩn hóa auth/task/dashboard contract.
-- Sửa `agent-jobs` để không cần bypass tạm thời.
-- Thiết lập GitHub repo + commit/tag baseline sạch.
+## Roadmap
+
+| Version | Focus                              | Status        |
+|---------|------------------------------------|---------------|
+| 1.0.0   | Core API + Dashboard + Agents      | ✅ Done       |
+| 1.2.0   | 2nd Brain: GDrive + Obsidian + RAG | 🚧 In Dev     |
+| 1.3.0   | Telegram bot full sync             | 📋 Planned    |
+| 1.4.0   | n8n automation workflows           | 📋 Planned    |
+| 2.0.0   | Mobile app (React Native)          | 🔮 Future     |

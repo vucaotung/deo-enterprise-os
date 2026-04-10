@@ -108,6 +108,25 @@ services:
     networks:
       - deo-net
 
+  chromadb:
+    image: chromadb/chroma:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - /opt/deo-brain/vector-store/chroma:/chroma/chroma
+    environment:
+      - ANONYMIZED_TELEMETRY=False
+      - ALLOW_RESET=False
+      - IS_PERSISTENT=TRUE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - deo-net
+
 volumes:
   pg_data:
   redis_data:
