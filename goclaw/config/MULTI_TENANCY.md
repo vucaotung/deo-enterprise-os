@@ -90,37 +90,39 @@ Cron/system   → X-GoClaw-User-Id: system
 
 ---
 
-### Telegram Channel Config (chỉ `deo`)
+### Telegram Channel Config
+
+Telegram dùng cho: sếp (deo) + technical agents ít tương tác human worker.
 
 | Agent | DM Policy | Group Policy | dm_scope | Ghi chú |
 |---|---|---|---|---|
 | `deo` | `allowlist` [sếp] | `disabled` | `per-sender` | Trợ lý cá nhân + super admin |
+| `it-dev-agent` | `allowlist` [dev/IT team, sếp] | `allowlist` [IT group] | `per-sender` | Technical — ít human worker |
+| `researcher-agent` | `allowlist` [analysts, sếp] | `disabled` | `per-sender` | Technical — ít human worker |
 
 **`dm_scope: per-sender`** = mỗi người dùng Telegram có session riêng.
 
 ### Allowlist setup — Telegram
 
-Vào **Channels → Telegram → Edit** cho agent `deo`:
+Vào **Channels → Telegram → Edit** cho từng agent:
 1. DM Policy: `allowlist`
-2. Thêm Telegram user ID của sếp duy nhất
-3. Group Policy: `disabled`
+2. Thêm Telegram user IDs theo nhóm được phép
+3. `deo`: chỉ Telegram ID của sếp; Group Policy `disabled`
 
 ---
 
-### Zalo Channel Config (tất cả agents nghiệp vụ)
+### Zalo Channel Config (agents nghiệp vụ — tương tác human worker)
 
 | Agent | DM Policy | Group Policy | dm_scope |
 |---|---|---|---|
 | `hr-agent` | `allowlist` [all staff] | `allowlist` [HR group] | `per-sender` |
 | `finance-agent` | `allowlist` [finance team, sếp] | `disabled` | `per-sender` |
 | `crm-agent` | `allowlist` [sales team, sếp] | `allowlist` [sales group] | `per-sender` |
-| `it-dev-agent` | `allowlist` [all staff] | `allowlist` [IT group] | `per-sender` |
 | `office-agent` | `allowlist` [all staff] | `disabled` | `per-sender` |
 | `office-admin-agent` | `allowlist` [all staff] | `allowlist` [admin group] | `per-sender` |
 | `marketing-agent` | `allowlist` [marketing, sếp] | `disabled` | `per-sender` |
 | `legal-agent` | `allowlist` [management, sếp] | `disabled` | `per-sender` |
 | `project-manager-agent` | `allowlist` [project team, sếp] | `allowlist` [project group] | `per-sender` |
-| `researcher-agent` | `allowlist` [analysts, sếp] | `disabled` | `per-sender` |
 | `ops-admin` | `allowlist` [admin] | `disabled` | `per-sender` |
 | `dream-agent` | `disabled` | `disabled` | — (cron only) |
 

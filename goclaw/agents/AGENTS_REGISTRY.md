@@ -14,12 +14,12 @@
 | 3 | `hr-agent` | HR Agent | Task | sonnet | 1 | Zalo | 🟠 High |
 | 4 | `finance-agent` | Finance Agent | Task | sonnet | 1 | Zalo | 🟠 High |
 | 5 | `crm-agent` | CRM Agent | Task | sonnet | 1 | Zalo | 🟠 High |
-| 6 | `it-dev-agent` | IT/Dev Agent | Task | sonnet | 1 | Zalo | 🟠 High |
+| 6 | `it-dev-agent` | IT/Dev Agent | Task | sonnet | 1 | Telegram | 🟠 High |
 | 7 | `office-admin-agent` | Office Admin Agent | Task | sonnet | 2 | Zalo | 🟡 Medium |
 | 8 | `marketing-agent` | Marketing Agent | Task | sonnet | 2 | Zalo, Internal | 🟡 Medium |
 | 9 | `legal-agent` | Legal Agent | Task | sonnet | 2 | Zalo, Internal | 🟡 Medium |
 | 10 | `project-manager-agent` | Project Manager Agent | Task | sonnet | 2 | Zalo, Internal | 🟡 Medium |
-| 11 | `researcher-agent` | Researcher Agent | Task | sonnet | 2 | Zalo, Internal | 🟡 Medium |
+| 11 | `researcher-agent` | Researcher Agent | Task | sonnet | 2 | Telegram, Internal | 🟡 Medium |
 | 12 | `dream-agent` | Dream Agent | Minimal | opus | 3 | Internal (cron only) | 🟢 Normal |
 | 13 | `ops-admin` | Ops Admin | Full | opus | 1 | Zalo (admin only) | 🟠 High |
 
@@ -177,7 +177,7 @@ deo → researcher-agent    (research chuyên sâu)
 **Channels:**
 ```json
 [
-  { "channel": "zalo", "access_policy": "allowlist" }
+  { "channel": "telegram", "access_policy": "allowlist" }
 ]
 ```
 
