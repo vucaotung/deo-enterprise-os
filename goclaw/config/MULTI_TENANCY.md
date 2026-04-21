@@ -83,12 +83,34 @@ Cron/system   → X-GoClaw-User-Id: system
 
 ## Channel Access Control
 
-### Telegram Channel Config (per agent)
+## Channel Strategy
+
+- **Zalo:** Kênh chính cho toàn bộ nhân viên — tất cả agents nghiệp vụ dùng Zalo
+- **Telegram:** Chỉ dành cho `deo` — trợ lý cá nhân của sếp, nhắc việc, quản lý chi tiêu cá nhân, super admin hệ thống
+
+---
+
+### Telegram Channel Config (chỉ `deo`)
+
+| Agent | DM Policy | Group Policy | dm_scope | Ghi chú |
+|---|---|---|---|---|
+| `deo` | `allowlist` [sếp] | `disabled` | `per-sender` | Trợ lý cá nhân + super admin |
+
+**`dm_scope: per-sender`** = mỗi người dùng Telegram có session riêng.
+
+### Allowlist setup — Telegram
+
+Vào **Channels → Telegram → Edit** cho agent `deo`:
+1. DM Policy: `allowlist`
+2. Thêm Telegram user ID của sếp duy nhất
+3. Group Policy: `disabled`
+
+---
+
+### Zalo Channel Config (tất cả agents nghiệp vụ)
 
 | Agent | DM Policy | Group Policy | dm_scope |
 |---|---|---|---|
-| `deo` | `allowlist` [sếp] | `disabled` | `per-sender` |
-| `ops-admin` | `allowlist` [sếp, admin] | `disabled` | `per-sender` |
 | `hr-agent` | `allowlist` [all staff] | `allowlist` [HR group] | `per-sender` |
 | `finance-agent` | `allowlist` [finance team, sếp] | `disabled` | `per-sender` |
 | `crm-agent` | `allowlist` [sales team, sếp] | `allowlist` [sales group] | `per-sender` |
@@ -99,15 +121,16 @@ Cron/system   → X-GoClaw-User-Id: system
 | `legal-agent` | `allowlist` [management, sếp] | `disabled` | `per-sender` |
 | `project-manager-agent` | `allowlist` [project team, sếp] | `allowlist` [project group] | `per-sender` |
 | `researcher-agent` | `allowlist` [analysts, sếp] | `disabled` | `per-sender` |
+| `ops-admin` | `allowlist` [admin] | `disabled` | `per-sender` |
 | `dream-agent` | `disabled` | `disabled` | — (cron only) |
 
-**`dm_scope: per-sender`** = mỗi người dùng Telegram có session riêng. Đây là default và đúng cho mọi agent.
+**`dm_scope: per-sender`** = mỗi user Zalo có session riêng biệt.
 
-### Allowlist setup
+### Allowlist setup — Zalo
 
-Sau khi tạo agent trên dashboard, vào **Channels → Telegram → Edit**:
+Vào **Channels → Zalo → Edit** cho từng agent:
 1. DM Policy: `allowlist`
-2. Thêm Telegram user IDs của người được phép
+2. Thêm Zalo user IDs của nhóm được phép
 3. Để trống = allow all (không khuyến nghị cho production)
 
 ---
@@ -119,8 +142,12 @@ GoClaw config.json5 — section channels:
 {
   "channels": {
     "telegram": {
-      "dm_scope": "per-sender",        // mỗi user có session riêng
-      "group_scope": "per-chat",       // mỗi group chat có session riêng
+      "dm_scope": "per-sender",        // chỉ dùng cho deo
+      "group_scope": "per-chat",
+    },
+    "zalo": {
+      "dm_scope": "per-sender",        // mỗi user Zalo có session riêng
+      "group_scope": "per-chat",       // mỗi group Zalo có session riêng
     }
   }
 }

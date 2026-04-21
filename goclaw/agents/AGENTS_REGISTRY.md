@@ -9,19 +9,19 @@
 
 | # | Key | Tên | Template | Model | Phase | Channels | Priority |
 |---|---|---|---|---|---|---|---|
-| 1 | `deo` | Dẹo | Full | sonnet | 0 | Telegram, Zalo | 🔴 Critical |
-| 2 | `office-agent` | Office Agent | Task | sonnet | 1 | Telegram, Internal | 🟠 High |
-| 3 | `hr-agent` | HR Agent | Task | sonnet | 1 | Telegram, Zalo | 🟠 High |
-| 4 | `finance-agent` | Finance Agent | Task | sonnet | 1 | Telegram, Zalo | 🟠 High |
-| 5 | `crm-agent` | CRM Agent | Task | sonnet | 1 | Telegram, Zalo | 🟠 High |
-| 6 | `it-dev-agent` | IT/Dev Agent | Task | sonnet | 1 | Telegram | 🟠 High |
-| 7 | `office-admin-agent` | Office Admin Agent | Task | sonnet | 2 | Telegram, Zalo | 🟡 Medium |
-| 8 | `marketing-agent` | Marketing Agent | Task | sonnet | 2 | Telegram, Internal | 🟡 Medium |
-| 9 | `legal-agent` | Legal Agent | Task | sonnet | 2 | Telegram, Internal | 🟡 Medium |
-| 10 | `project-manager-agent` | Project Manager Agent | Task | sonnet | 2 | Telegram, Internal | 🟡 Medium |
-| 11 | `researcher-agent` | Researcher Agent | Task | sonnet | 2 | Telegram, Internal | 🟡 Medium |
+| 1 | `deo` | Dẹo | Full | sonnet | 0 | **Telegram** (sếp only) | 🔴 Critical |
+| 2 | `office-agent` | Office Agent | Task | sonnet | 1 | Zalo, Internal | 🟠 High |
+| 3 | `hr-agent` | HR Agent | Task | sonnet | 1 | Zalo | 🟠 High |
+| 4 | `finance-agent` | Finance Agent | Task | sonnet | 1 | Zalo | 🟠 High |
+| 5 | `crm-agent` | CRM Agent | Task | sonnet | 1 | Zalo | 🟠 High |
+| 6 | `it-dev-agent` | IT/Dev Agent | Task | sonnet | 1 | Zalo | 🟠 High |
+| 7 | `office-admin-agent` | Office Admin Agent | Task | sonnet | 2 | Zalo | 🟡 Medium |
+| 8 | `marketing-agent` | Marketing Agent | Task | sonnet | 2 | Zalo, Internal | 🟡 Medium |
+| 9 | `legal-agent` | Legal Agent | Task | sonnet | 2 | Zalo, Internal | 🟡 Medium |
+| 10 | `project-manager-agent` | Project Manager Agent | Task | sonnet | 2 | Zalo, Internal | 🟡 Medium |
+| 11 | `researcher-agent` | Researcher Agent | Task | sonnet | 2 | Zalo, Internal | 🟡 Medium |
 | 12 | `dream-agent` | Dream Agent | Minimal | opus | 3 | Internal (cron only) | 🟢 Normal |
-| 13 | `ops-admin` | Ops Admin | Full | opus | 1 | Telegram (admin only) | 🟠 High |
+| 13 | `ops-admin` | Ops Admin | Full | opus | 1 | Zalo (admin only) | 🟠 High |
 
 ---
 
@@ -39,10 +39,10 @@
 **Channels:**
 ```json
 [
-  { "channel": "telegram", "access_policy": "allowlist" },
-  { "channel": "zalo",     "access_policy": "allowlist" }
+  { "channel": "telegram", "access_policy": "allowlist" }
 ]
 ```
+> ⚠️ Chỉ Telegram — trợ lý cá nhân sếp + super admin hệ thống. Không dùng Zalo.
 
 **Context files:**
 | File | Nội dung |
@@ -79,7 +79,7 @@ deo → researcher-agent    (research chuyên sâu)
 **Channels:**
 ```json
 [
-  { "channel": "telegram", "access_policy": "allowlist" },
+  { "channel": "zalo",     "access_policy": "allowlist" },
   { "channel": "internal", "access_policy": "open" }
 ]
 ```
@@ -105,8 +105,7 @@ deo → researcher-agent    (research chuyên sâu)
 **Channels:**
 ```json
 [
-  { "channel": "telegram", "access_policy": "allowlist" },
-  { "channel": "zalo",     "access_policy": "allowlist" }
+  { "channel": "zalo", "access_policy": "allowlist" }
 ]
 ```
 
@@ -133,8 +132,7 @@ deo → researcher-agent    (research chuyên sâu)
 **Channels:**
 ```json
 [
-  { "channel": "telegram", "access_policy": "allowlist" },
-  { "channel": "zalo",     "access_policy": "allowlist" }
+  { "channel": "zalo", "access_policy": "allowlist" }
 ]
 ```
 
@@ -179,7 +177,7 @@ deo → researcher-agent    (research chuyên sâu)
 **Channels:**
 ```json
 [
-  { "channel": "telegram", "access_policy": "allowlist" }
+  { "channel": "zalo", "access_policy": "allowlist" }
 ]
 ```
 
@@ -305,8 +303,8 @@ deo → researcher-agent    (research chuyên sâu)
 **Channels:**
 ```json
 [
-  { "channel": "telegram", "access_policy": "allowlist",
-    "allowlist": ["<admin_telegram_id>"] }
+  { "channel": "zalo", "access_policy": "allowlist",
+    "allowlist": ["<admin_zalo_id>"] }
 ]
 ```
 

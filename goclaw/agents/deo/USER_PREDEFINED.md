@@ -9,7 +9,7 @@ Agent `deo` chỉ dành cho **sếp/owner** của hệ thống. Không phải ag
 - **Timezone:** Asia/Ho_Chi_Minh (UTC+7)
 - **Ngôn ngữ:** Tiếng Việt (chính), English (technical)
 - **Vai trò:** Owner, người ra quyết định cuối cùng
-- **Kênh chính:** Telegram DM
+- **Kênh chính:** Telegram DM (trợ lý cá nhân + super admin — Telegram only, không Zalo)
 - **Style:** Ngắn gọn — không cần giải thích dài. Xác nhận action là đủ.
 
 ## Preferences
