@@ -1,6 +1,16 @@
 # Version
 
-## Current: 1.2.0-dev
+## Architecture Version: v3.0.0 — GoClaw Edition
+**Date:** April 21, 2026
+**Status:** Architecture documented. Phase 0 implementation pending.
+- Agent layer: GoClaw (replaces OpenClaw)
+- 11 agents defined + context files
+- 12 ADRs chốt hoàn toàn
+- Docs: `docs/ENTERPRISE_HUMAN_AI_HYBRID_OS_PLAN_v3_GOCLAW.md`
+
+---
+
+## App Version: 1.2.0-dev
 **Branch:** main
 **Date:** April 2026
 **Status:** In Development — Sprint 1 (Infrastructure)
@@ -9,7 +19,13 @@
 
 ## Changelog Summary
 
-### v1.2.0-dev (current)
+### v3.0.0 — Architecture (2026-04-21)
+- GoClaw agent layer + 11 agents registry
+- van-phong-agent: DOCX/XLSX/PPTX/PDF specialist
+- 12 ADRs: auth, schema, multi-tenancy, testing, deployment
+- Cron: 11 scheduled jobs (Asia/Ho_Chi_Minh)
+
+### v1.2.0-dev (current app)
 - Infrastructure: Google Drive + VPS Brain Hub + Obsidian Vault
 - New: `scripts/setup-brain.sh` — automated brain hub setup
 - New: `scripts/brain-sync.sh` — vault git sync + embed trigger (cron every 5m)
@@ -32,10 +48,9 @@
 
 ## Roadmap
 
-| Version | Focus                              | Status        |
-|---------|------------------------------------|---------------|
-| 1.0.0   | Core API + Dashboard + Agents      | ✅ Done       |
-| 1.2.0   | 2nd Brain: GDrive + Obsidian + RAG | 🚧 In Dev     |
-| 1.3.0   | Telegram bot full sync             | 📋 Planned    |
-| 1.4.0   | n8n automation workflows           | 📋 Planned    |
-| 2.0.0   | Mobile app (React Native)          | 🔮 Future     |
+| Version | Focus | Status |
+|---|---|---|
+| 1.0.0 | Core API + Dashboard + Agents | ✅ Done |
+| 1.2.0 | 2nd Brain: GDrive + Obsidian + RAG | 🚧 In Dev |
+| v3.0.0 | Architecture: GoClaw + Agents + ADRs | ✅ Documented |
+| v3.1.0 | Phase 0 Implementation | 🔜 Next |
