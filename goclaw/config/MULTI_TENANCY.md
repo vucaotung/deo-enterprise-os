@@ -182,7 +182,7 @@ Tạo từ Dashboard → Settings → API Keys:
 Lưu key vào `.env` của Enterprise OS API:
 ```bash
 GOCLAW_API_KEY=goclaw_sk_xxxxx
-GOCLAW_BASE_URL=http://localhost:3777
+GOCLAW_BASE_URL=http://localhost:18790
 ```
 
 ### 3. Cron Jobs (dream-agent)
@@ -211,14 +211,21 @@ Auth: Service token (xem ADR-01). GoClaw gọi MCP với service token trong hea
 Khi n8n cần trigger GoClaw:
 ```json
 {
-  "url": "http://localhost:3777/v1/chat/completions",
+  "url": "http://localhost:18790/v1/chat/completions",
   "headers": {
     "Authorization": "Bearer {{GOCLAW_API_KEY}}",
     "X-GoClaw-User-Id": "system",
-    "X-GoClaw-Agent-Id": "report-agent"
+    "X-GoClaw-Agent-Id": "dream-agent"
+  },
+  "body": {
+    "model": "agent:dream-agent",
+    "messages": [{ "role": "user", "content": "daily-reflection" }]
   }
 }
 ```
+
+> **Port:** GoClaw Docker chạy trên `18790` (không phải `3777`).
+> **`GOCLAW_API_KEY`:** Gateway token — lưu trong n8n Credentials dưới dạng Header Auth.
 
 ---
 
