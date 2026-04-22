@@ -377,15 +377,36 @@ researcher-agent← nhận từ: deo, marketing, crm, legal
 ## GoClaw Dashboard Checklist
 
 Khi tạo mỗi agent:
-- [ ] Key đúng (lowercase, hyphens)
-- [ ] Provider: Claude (đúng model)
-- [ ] Template size theo bảng trên
-- [ ] SOUL evolution: chỉ bật cho `deo`
-- [ ] Upload SOUL.md, IDENTITY.md, AGENTS.md
-- [ ] Connect channels phù hợp
-- [ ] Test 1 câu sau khi tạo xong
+- [x] Key đúng (lowercase, hyphens)
+- [x] Provider + model đã set (xem bảng model thực tế bên dưới)
+- [x] Upload SOUL.md, IDENTITY.md, AGENTS.md, CAPABILITIES.md, USER_PREDEFINED.md
+- [x] Connect channels phù hợp (Telegram: deo, it-dev, researcher / Zalo: còn lại)
+- [ ] Test 1 câu với từng agent sau khi setup xong
+- [ ] SOUL evolution: bật cho `deo` trên dashboard
 
 ---
 
-*Registry v2.0 — 2026-04-21*
-*13 agents | Based on GoClaw context files spec (docs.goclaw.sh)*
+## Model thực tế (2026-04-22)
+
+| Agent | Model hiện tại | Target |
+|---|---|---|
+| `deo` | gpt-5.4 | claude-sonnet-4-6 |
+| `office-agent` | gpt-5.4 | claude-sonnet-4-6 |
+| `hr-agent` | google/gemma-4-31b-it | claude-sonnet-4-6 |
+| `finance-agent` | minimax/minimax-m2.5:free | claude-sonnet-4-6 |
+| `crm-agent` | gpt-4o | claude-sonnet-4-6 |
+| `it-dev-agent` | gpt-4o | claude-sonnet-4-6 |
+| `office-admin-agent` | gpt-4o | claude-sonnet-4-6 |
+| `marketing-agent` | gpt-5.4 | claude-sonnet-4-6 |
+| `legal-agent` | gpt-5.4 | claude-sonnet-4-6 |
+| `project-manager-agent` | gpt-5.4 | claude-sonnet-4-6 |
+| `researcher-agent` | minimax/minimax-m2.5:free | claude-sonnet-4-6 |
+| `dream-agent` | google/gemma-4-31b-it | claude-opus-4-6 |
+| `ops-admin` | minimax/minimax-m2.5:free | claude-opus-4-6 |
+
+> **TODO:** Sau khi có Anthropic API key → đổi tất cả sang target model.
+
+---
+
+*Registry v2.1 — 2026-04-22*
+*13 agents active | GoClaw Docker port 18790*
