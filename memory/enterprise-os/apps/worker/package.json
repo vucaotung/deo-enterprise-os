@@ -1,0 +1,8 @@
+{
+  "name": "deo-enterprise-worker",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "worker": "node src/worker.js"
+  }
+}

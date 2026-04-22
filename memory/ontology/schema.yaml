@@ -1,0 +1,79 @@
+types:
+  Person:
+    mo_ta: "Con người / cá nhân có liên quan tới công việc hoặc liên hệ"
+    required: [name]
+    properties:
+      name: { type: string, mo_ta: "Tên hiển thị" }
+      email: { type: string, mo_ta: "Email" }
+      phone: { type: string, mo_ta: "Số điện thoại" }
+      role: { type: string, mo_ta: "Vai trò / chức danh" }
+      notes: { type: string, mo_ta: "Ghi chú thêm" }
+
+  Project:
+    mo_ta: "Dự án / việc lớn cần theo dõi"
+    required: [name, status]
+    status_enum: [y_tuong, dang_lam, tam_dung, hoan_thanh]
+    properties:
+      name: { type: string, mo_ta: "Tên dự án" }
+      status: { type: string, mo_ta: "Trạng thái dự án" }
+      goals: { type: array, mo_ta: "Mục tiêu chính" }
+      owner: { type: string, mo_ta: "ID người phụ trách chính (nếu cần lưu trực tiếp)" }
+      due: { type: string, mo_ta: "Hạn dự kiến" }
+      notes: { type: string, mo_ta: "Ghi chú" }
+
+  Task:
+    mo_ta: "Công việc cụ thể cần làm"
+    required: [title, status]
+    status_enum: [open, in_progress, blocked, done, cancelled]
+    priority_enum: [low, medium, high, urgent]
+    properties:
+      title: { type: string, mo_ta: "Tiêu đề công việc" }
+      status: { type: string, mo_ta: "Trạng thái công việc" }
+      priority: { type: string, mo_ta: "Độ ưu tiên" }
+      due: { type: string, mo_ta: "Hạn chót" }
+      assignee: { type: string, mo_ta: "ID người được giao" }
+      summary: { type: string, mo_ta: "Mô tả ngắn" }
+      notes: { type: string, mo_ta: "Ghi chú" }
+
+  Document:
+    mo_ta: "Tài liệu, file, link, ghi chú dài hoặc nguồn tham chiếu"
+    required: [title]
+    properties:
+      title: { type: string, mo_ta: "Tên tài liệu" }
+      path: { type: string, mo_ta: "Đường dẫn file local" }
+      url: { type: string, mo_ta: "Liên kết" }
+      summary: { type: string, mo_ta: "Tóm tắt nội dung" }
+      tags: { type: array, mo_ta: "Nhãn phân loại" }
+      notes: { type: string, mo_ta: "Ghi chú" }
+
+relations:
+  has_owner:
+    mo_ta: "Project hoặc Task có người phụ trách"
+    from_types: [Project, Task]
+    to_types: [Person]
+    cardinality: many_to_one
+
+  has_task:
+    mo_ta: "Project có nhiều task"
+    from_types: [Project]
+    to_types: [Task]
+    cardinality: one_to_many
+
+  assigned_to:
+    mo_ta: "Task được giao cho Person"
+    from_types: [Task]
+    to_types: [Person]
+    cardinality: many_to_one
+
+  relates_to_document:
+    mo_ta: "Project hoặc Task liên quan tới tài liệu"
+    from_types: [Project, Task]
+    to_types: [Document]
+    cardinality: many_to_many
+
+  blocks:
+    mo_ta: "Task này chặn Task kia"
+    from_types: [Task]
+    to_types: [Task]
+    cardinality: many_to_many
+    acyclic: true
