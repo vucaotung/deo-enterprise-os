@@ -1,0 +1,144 @@
+════════════════════════════════════════════════════════════════
+  DẸO ENTERPRISE OS — QUICK START CHECKLIST
+  IP: 173.249.51.69 | Domain: enterpriseos.bond
+════════════════════════════════════════════════════════════════
+
+PHASE 1: VPS SETUP (15 mins)
+════════════════════════════════════════════════════════════════
+
+[ ] SSH vào VPS
+    ssh root@173.249.51.69
+
+[ ] Update hệ thống
+    apt update && apt upgrade -y
+
+[ ] Cài Docker
+    curl -fsSL https://get.docker.com | sh
+
+[ ] Verify Docker
+    docker version
+
+[ ] Tạo thư mục app
+    mkdir -p /opt/deo-enterprise-os
+    cd /opt/deo-enterprise-os
+
+════════════════════════════════════════════════════════════════
+PHASE 2: CODE & CONFIG (10 mins)
+════════════════════════════════════════════════════════════════
+
+[ ] Clone project (hoặc copy từ máy local)
+    git clone https://github.com/YOUR_USER/deo-enterprise-os.git .
+
+[ ] Tạo .env file
+    cp .env.example .env
+    nano .env
+
+[ ] Điền .env values:
+    ☐ POSTGRES_PASSWORD = [mật khẩu mạnh 16+ ký tự]
+    ☐ JWT_SECRET = [output từ: openssl rand -hex 32]
+    ☐ TUNNEL_TOKEN = [sẽ lấy từ Cloudflare]
+    ☐ CORS_ORIGIN = https://dash.enterpriseos.bond
+    ☐ DOMAIN = enterpriseos.bond
+
+[ ] Lưu .env
+    Ctrl+X → Y → Enter
+
+════════════════════════════════════════════════════════════════
+PHASE 3: DEPLOY (5 mins)
+════════════════════════════════════════════════════════════════
+
+[ ] Chạy deploy script
+    bash scripts/deploy.sh
+    (Chờ khi có "✅ Deploy complete!")
+
+[ ] Kiểm tra status
+    docker compose -f docker-compose.prod.yml ps
+    (Tất cả 7 services phải là "Up")
+
+════════════════════════════════════════════════════════════════
+PHASE 4: CLOUDFLARE TUNNEL (5 mins)
+════════════════════════════════════════════════════════════════
+
+[ ] Vào https://one.dash.cloudflare.com
+
+[ ] Tạo Tunnel
+    ☐ Access → Tunnels
+    ☐ Create tunnel
+    ☐ Connector: Cloudflared
+    ☐ Name: deo-production
+
+[ ] Extract token
+    ☐ Copy dòng lệnh từ Cloudflare
+    ☐ Extract token sau "--token "
+    ☐ Cập nhật .env: TUNNEL_TOKEN=...
+    ☐ docker compose -f docker-compose.prod.yml up -d tunnel
+
+[ ] Add public hostnames
+    ☐ Hostname 1: dash.enterpriseos.bond → http://nginx:80
+    ☐ Hostname 2: api.enterpriseos.bond → http://nginx:80
+    ☐ Save
+
+[ ] Verify tunnel running
+    docker compose -f docker-compose.prod.yml logs tunnel | tail -20
+    (tìm "successfully established a connection")
+
+════════════════════════════════════════════════════════════════
+SUCCESS! ✅
+════════════════════════════════════════════════════════════════
+
+Dashboard:  https://dash.enterpriseos.bond
+API:        https://api.enterpriseos.bond
+
+Login:
+  Email: vucaotung@gmail.com
+  Password: [sẽ setup sau]
+
+════════════════════════════════════════════════════════════════
+USEFUL COMMANDS
+════════════════════════════════════════════════════════════════
+
+Xem logs API:
+  docker compose -f docker-compose.prod.yml logs -f api
+
+Health check:
+  bash scripts/health-check.sh
+
+Backup database:
+  bash scripts/backup.sh
+
+Restart services:
+  docker compose -f docker-compose.prod.yml restart
+
+View all containers:
+  docker compose -f docker-compose.prod.yml ps
+
+════════════════════════════════════════════════════════════════
+TROUBLESHOOTING
+════════════════════════════════════════════════════════════════
+
+API not responding?
+  docker compose -f docker-compose.prod.yml logs api | tail -50
+
+Database not connecting?
+  docker compose -f docker-compose.prod.yml exec postgres pg_isready -U deo
+
+Tunnel not running?
+  docker compose -f docker-compose.prod.yml logs tunnel
+
+Need to restart everything?
+  docker compose -f docker-compose.prod.yml restart
+
+════════════════════════════════════════════════════════════════
+NEXT STEPS (Phase 5)
+════════════════════════════════════════════════════════════════
+
+1. Setup authentication (change user password)
+2. Configure Telegram bot integration
+3. Setup n8n for automation workflows
+4. Configure OpenClaw agents
+5. Setup email notifications
+6. Enable database backup cron job
+
+════════════════════════════════════════════════════════════════
+Full guide: DEPLOYMENT_GUIDE_VN.md
+════════════════════════════════════════════════════════════════
