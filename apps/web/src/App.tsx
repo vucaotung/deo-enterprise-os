@@ -14,6 +14,8 @@ import { Finance } from '@/pages/Finance';
 import { Agents } from '@/pages/Agents';
 import { Clarifications } from '@/pages/Clarifications';
 import { Notebooks } from '@/pages/Notebooks';
+import { Workers } from '@/pages/Workers';
+import { Approvals } from '@/pages/Approvals';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -78,6 +80,8 @@ const AppRoutes = () => {
         <Route path="/crm" element={<CRM />} />
         <Route path="/finance" element={<Finance />} />
         <Route path="/agents" element={<Agents />} />
+        <Route path="/workers" element={<Workers />} />
+        <Route path="/approvals" element={<Approvals />} />
         <Route path="/clarifications" element={<Clarifications />} />
         <Route path="/notebooks" element={<Notebooks />} />
       </Route>

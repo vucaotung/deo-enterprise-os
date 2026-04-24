@@ -13,6 +13,8 @@ import {
   Menu,
   X,
   LogOut,
+  UserCog,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -29,6 +31,8 @@ export const Sidebar = () => {
     { icon: Users, label: 'CRM', path: '/crm' },
     { icon: DollarSign, label: 'Tài chính', path: '/finance' },
     { icon: Zap, label: 'Agents', path: '/agents' },
+    { icon: UserCog, label: 'Workers', path: '/workers' },
+    { icon: ShieldCheck, label: 'Approvals', path: '/approvals' },
     { icon: HelpCircle, label: 'Làm rõ', path: '/clarifications' },
     { icon: BookOpen, label: 'Sổ ghi chép', path: '/notebooks' },
   ];
