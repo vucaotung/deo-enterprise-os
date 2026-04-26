@@ -166,7 +166,7 @@ export const Notebooks = () => {
                         ? 'warning'
                         : notebook.type === 'research'
                           ? 'success'
-                          : 'gray'
+                          : 'default'
                   }
                   size="sm"
                 >
@@ -229,7 +229,7 @@ export const Notebooks = () => {
                             ? 'warning'
                             : notebook.type === 'research'
                               ? 'success'
-                              : 'gray'
+                              : 'default'
                       }
                       size="sm"
                     >
@@ -270,7 +270,7 @@ export const Notebooks = () => {
                       ? 'warning'
                       : selectedNotebook.type === 'research'
                         ? 'success'
-                        : 'gray'
+                        : 'default'
                 }
               >
                 {typeLabels[selectedNotebook.type]}

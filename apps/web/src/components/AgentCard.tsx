@@ -49,7 +49,7 @@ export const AgentCard = ({
             </Badge>
           ))}
           {agent.capabilities.length > 3 && (
-            <Badge size="sm" variant="gray">
+            <Badge size="sm" variant="default">
               +{agent.capabilities.length - 3}
             </Badge>
           )}

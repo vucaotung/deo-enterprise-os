@@ -78,12 +78,12 @@ const statusLabelMap: Record<ProjectStatus, string> = {
   cancelled: 'Cancelled',
 };
 
-const statusVariantMap: Record<ProjectStatus, 'info' | 'warning' | 'success' | 'danger' | 'gray'> = {
+const statusVariantMap: Record<ProjectStatus, 'info' | 'warning' | 'success' | 'error' | 'default'> = {
   planning: 'warning',
   active: 'info',
-  on_hold: 'gray',
+  on_hold: 'default',
   completed: 'success',
-  cancelled: 'danger',
+  cancelled: 'error',
 };
 
 export const Projects = () => {
