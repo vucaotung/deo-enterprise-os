@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   LogOut,
+  UserCog,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -21,7 +22,7 @@ export const Sidebar = () => {
   const { logout, user } = useAuth();
   const displayName = user?.username || 'User';
 
-  const navItems = [
+  const baseNavItems = [
     { icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/' },
     { icon: MessageSquare, label: 'Chat', path: '/chat' },
     { icon: CheckSquare, label: 'Công việc', path: '/tasks' },
@@ -32,6 +33,13 @@ export const Sidebar = () => {
     { icon: HelpCircle, label: 'Làm rõ', path: '/clarifications' },
     { icon: BookOpen, label: 'Sổ ghi chép', path: '/notebooks' },
   ];
+
+  const adminNavItems = [
+    { icon: UserCog, label: 'Tài khoản', path: '/admin/users' },
+  ];
+
+  const isAdminOrManager = user?.role === 'admin' || user?.role === 'manager';
+  const navItems = isAdminOrManager ? [...baseNavItems, ...adminNavItems] : baseNavItems;
 
   return (
     <>

@@ -4,8 +4,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
 import { Login } from '@/pages/Login';
+import { Signup } from '@/pages/Signup';
 
 const Dashboard = lazy(() => import('@/pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const AdminUsers = lazy(() => import('@/pages/AdminUsers').then(m => ({ default: m.AdminUsers })));
 const Chat = lazy(() => import('@/pages/Chat').then(m => ({ default: m.Chat })));
 const Tasks = lazy(() => import('@/pages/Tasks').then(m => ({ default: m.Tasks })));
 const Projects = lazy(() => import('@/pages/Projects').then(m => ({ default: m.Projects })));
@@ -71,6 +73,14 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/signup"
+        element={
+          <PublicRoute>
+            <Signup />
+          </PublicRoute>
+        }
+      />
+      <Route
         element={
           <PrivateRoute>
             <Layout />
@@ -88,6 +98,7 @@ const AppRoutes = () => {
         <Route path="/agents" element={<Suspense fallback={<RouteFallback />}><Agents /></Suspense>} />
         <Route path="/clarifications" element={<Suspense fallback={<RouteFallback />}><Clarifications /></Suspense>} />
         <Route path="/notebooks" element={<Suspense fallback={<RouteFallback />}><Notebooks /></Suspense>} />
+        <Route path="/admin/users" element={<Suspense fallback={<RouteFallback />}><AdminUsers /></Suspense>} />
       </Route>
     </Routes>
   );
