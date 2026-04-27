@@ -54,18 +54,43 @@ jobs:
             SHA=${{ steps.flags.outputs.git_sha }}
             NO_CACHE='${{ steps.flags.outputs.no_cache }}'
 
+            REPO_URL="https://github.com/vucaotung/deo-enterprise-os.git"
+            ENV_BACKUP="/tmp/deo-os.env.backup"
+
             echo "==> Repo: $REPO_DIR  Branch: $BRANCH  SHA: $SHA"
 
-            cd "$REPO_DIR"
+            if [ -d "$REPO_DIR/.git" ]; then
+              echo "==> Existing git repo found, fast-forwarding"
+              cd "$REPO_DIR"
+              git remote set-url origin "$REPO_URL" || git remote add origin "$REPO_URL"
+              git fetch origin "$BRANCH"
+              git checkout -B "$BRANCH" "origin/$BRANCH"
+              git reset --hard "origin/$BRANCH"
+            else
+              echo "==> No git repo at $REPO_DIR — bootstrapping"
+              if [ -d "$REPO_DIR" ] && [ -f "$REPO_DIR/.env" ]; then
+                echo "    preserving existing .env -> $ENV_BACKUP"
+                cp -f "$REPO_DIR/.env" "$ENV_BACKUP"
+              fi
+              if [ -d "$REPO_DIR" ]; then
+                BACKUP="${REPO_DIR}.bak.$(date -u +%Y%m%dT%H%M%SZ)"
+                echo "    moving existing $REPO_DIR -> $BACKUP"
+                mv "$REPO_DIR" "$BACKUP"
+              fi
+              mkdir -p "$(dirname "$REPO_DIR")"
+              git clone --branch "$BRANCH" --single-branch "$REPO_URL" "$REPO_DIR"
+              cd "$REPO_DIR"
+              if [ -f "$ENV_BACKUP" ]; then
+                echo "    restoring .env from backup"
+                cp -f "$ENV_BACKUP" "$REPO_DIR/.env"
+              fi
+            fi
 
-            echo "==> Fetching ${BRANCH}"
-            git fetch origin "$BRANCH"
-            git checkout "$BRANCH"
-            git reset --hard "origin/$BRANCH"
             git log -1 --oneline
 
-            if [ ! -f .env ]; then
-              echo "!! .env missing. Aborting before docker compose." >&2
+            if [ ! -f "$REPO_DIR/.env" ]; then
+              echo "!! .env missing on VPS. Need to create it manually." >&2
+              echo "   Look at .env.example for required keys." >&2
               exit 1
             fi
 
