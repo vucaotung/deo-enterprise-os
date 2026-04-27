@@ -105,17 +105,24 @@ jobs:
             echo "==> Building images $NO_CACHE"
             $COMPOSE build $NO_CACHE --pull
 
-            echo "==> Starting stack"
-            $COMPOSE up -d
+            echo "==> Starting infra (postgres, redis, chromadb) and waiting for healthy"
+            $COMPOSE up -d postgres redis chromadb
 
-            echo "==> Waiting for postgres + api to come up"
-            for i in $(seq 1 60); do
+            for i in $(seq 1 90); do
               if $COMPOSE exec -T postgres pg_isready -U "${POSTGRES_USER:-deo}" >/dev/null 2>&1; then
                 echo "postgres ready (after ${i}s)"
                 break
               fi
               sleep 1
+              if [ "$i" = "90" ]; then
+                echo "!! postgres never became ready"
+                $COMPOSE logs --tail=80 postgres
+                exit 3
+              fi
             done
+
+            echo "==> Starting application stack (api, worker, web, nginx, tunnel)"
+            $COMPOSE up -d
 
             echo "==> Service status"
             $COMPOSE ps
