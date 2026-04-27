@@ -1,7 +1,5 @@
--- ============================================================
--- Dẹo Enterprise OS — Init Database
--- File: 001_init.sql
--- ============================================================
-CREATE DATABASE deo_os;
-\c deo_os;
+-- 001: extensions
+-- (CREATE DATABASE / \c removed — postgres container creates the DB
+-- via POSTGRES_DB env, and the pg Node driver can't run psql meta
+-- commands like \c.)
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";

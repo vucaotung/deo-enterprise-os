@@ -117,21 +117,7 @@ jobs:
 
             COMPOSE="docker compose -f docker-compose.prod.yml"
 
-            echo "==> Stopping previous stack (keeping volumes)"
-            $COMPOSE down --remove-orphans || true
-
-            echo "==> Diagnosing what holds host port 80"
-            ss -lnpt 'sport = :80' 2>/dev/null || netstat -lnpt 2>/dev/null | awk '$4 ~ /:80$/' || true
-            echo "    docker containers binding :80 ->"
-            docker ps --format '{{.ID}}\t{{.Names}}\t{{.Ports}}' | awk '/:80->/' || true
-
-            echo "==> Freeing host port 80 if held by stray containers or services"
-            # 1) stop any docker container binding host :80 that isn't ours (already brought down above)
-            for cid in $(docker ps -q --filter "publish=80"); do
-              echo "    stopping stray docker container $cid"
-              docker stop "$cid" || true
-            done
-            # 2) stop common system services that may grab :80
+            echo "==> Free non-docker services on port 80 (we never tear down compose stack until the new one is ready)"
             for svc in nginx apache2 httpd caddy lighttpd haproxy; do
               if systemctl is-active --quiet "$svc" 2>/dev/null; then
                 echo "    stopping + disabling system service: $svc"
@@ -139,21 +125,14 @@ jobs:
                 systemctl disable "$svc" || true
               fi
             done
-            # 3) recheck
-            if ss -lnpt 'sport = :80' 2>/dev/null | grep -q LISTEN; then
-              echo "!! port 80 STILL held after cleanup:" >&2
-              ss -lnpt 'sport = :80' >&2
-              exit 4
-            fi
-            echo "    port 80 is free"
 
             echo "==> Pruning dangling images"
             docker image prune -f >/dev/null
 
-            echo "==> Building images $NO_CACHE"
+            echo "==> Building images $NO_CACHE (does not touch running stack)"
             $COMPOSE build $NO_CACHE --pull
 
-            echo "==> Starting infra (postgres, redis, chromadb, loki) and waiting for healthy"
+            echo "==> Ensuring infra (postgres, redis, chromadb, loki) is up"
             $COMPOSE up -d postgres redis chromadb loki
 
             for i in $(seq 1 90); do
@@ -169,11 +148,11 @@ jobs:
               fi
             done
 
-            echo "==> Running DB migrations + admin seed"
+            echo "==> Running DB migrations + admin seed (with new image; old api keeps serving)"
             $COMPOSE run --rm --no-deps -T api node dist/scripts/migrate.js
 
-            echo "==> Starting application stack (api, worker, web, nginx, tunnel)"
-            $COMPOSE up -d
+            echo "==> Swapping in new app containers (recreate api, worker, web, nginx, tunnel)"
+            $COMPOSE up -d --remove-orphans
 
             echo "==> Service status"
             $COMPOSE ps
