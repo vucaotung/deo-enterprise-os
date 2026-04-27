@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Conversation, Message, User } from '@/types';
+import { Conversation, Message } from '@/types';
 import { ChatPanel } from '@/components/ChatPanel';
 import { ContextPanel } from '@/components/ContextPanel';
-import { Search, Send } from 'lucide-react';
-import { formatDate, formatTimeAgo } from '@/lib/utils';
+import { Search } from 'lucide-react';
+import { formatTimeAgo } from '@/lib/utils';
 
 interface OutletContext {
   setPageTitle: (title: string) => void;
@@ -27,7 +27,9 @@ const mockConversations: Conversation[] = [
       phone: '0901234567',
       company: 'ABC Corp',
       company_id: 'c1',
+      status: 'active',
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     },
   },
   {
@@ -43,7 +45,7 @@ const mockConversations: Conversation[] = [
       id: '2',
       title: 'Phân tích dữ liệu',
       description: 'Phân tích xu hướng thị trường',
-      status: 'IN_PROGRESS',
+      status: 'in_progress',
       priority: 'high',
       company_id: 'c1',
       project_id: 'p1',

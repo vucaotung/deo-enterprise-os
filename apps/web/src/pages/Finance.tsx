@@ -113,7 +113,7 @@ const categoryIcons: Record<string, string> = {
 
 export const Finance = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
-  const [expenses, setExpenses] = useState<Expense[]>(mockExpenses);
+  const [expenses] = useState<Expense[]>(mockExpenses);
   const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
@@ -126,10 +126,11 @@ export const Finance = () => {
 
   const groupedByCategory = expenses.reduce(
     (acc, expense) => {
-      if (!acc[expense.category]) {
-        acc[expense.category] = [];
+      const cat = expense.category ?? 'Khác';
+      if (!acc[cat]) {
+        acc[cat] = [];
       }
-      acc[expense.category].push(expense);
+      acc[cat].push(expense);
       return acc;
     },
     {} as Record<string, Expense[]>
@@ -225,7 +226,7 @@ export const Finance = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <span>
-                          {categoryIcons[expense.category] || '📋'}
+                          {categoryIcons[expense.category ?? ''] || '📋'}
                         </span>
                         <p className="text-sm text-slate-600">
                           {expense.category}

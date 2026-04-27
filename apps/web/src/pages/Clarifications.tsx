@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Clarification } from '@/types';
 import { Badge } from '@/components/Badge';
-import { formatDate, formatTimeAgo } from '@/lib/utils';
+import { formatTimeAgo } from '@/lib/utils';
 import { AlertCircle, CheckCircle, Send } from 'lucide-react';
 
 interface OutletContext {
@@ -35,7 +35,7 @@ const mockClarifications: Clarification[] = [
       id: 't1',
       title: 'Phân tích dữ liệu thị trường',
       description: 'Phân tích xu hướng bán hàng',
-      status: 'IN_PROGRESS',
+      status: 'in_progress',
       priority: 'high',
       company_id: 'c1',
       project_id: 'p1',

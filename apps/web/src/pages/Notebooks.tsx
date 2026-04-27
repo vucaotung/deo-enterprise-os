@@ -78,7 +78,7 @@ const typeLabels: Record<string, string> = {
 export const Notebooks = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [notebooks, setNotebooks] = useState<Notebook[]>(mockNotebooks);
+  const [notebooks] = useState<Notebook[]>(mockNotebooks);
   const [selectedNotebook, setSelectedNotebook] = useState<Notebook | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');

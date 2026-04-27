@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Lead, Client } from '@/types';
+import { Lead } from '@/types';
 import { Badge } from '@/components/Badge';
 import { SlidePanel } from '@/components/SlidePanel';
 import { Plus } from 'lucide-react';
-import { formatDate, getStatusColor, getStatusLabel } from '@/lib/utils';
+import { getStatusColor, getStatusLabel } from '@/lib/utils';
 
 interface OutletContext {
   setPageTitle: (title: string) => void;
@@ -28,7 +28,9 @@ const mockLeads: Lead[] = [
       phone: '0901234567',
       company: 'ABC Corp',
       company_id: 'c1',
+      status: 'active',
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     },
     assignee: {
       id: 'u1',
@@ -55,7 +57,9 @@ const mockLeads: Lead[] = [
       phone: '0912345678',
       company: 'XYZ Inc',
       company_id: 'c1',
+      status: 'active',
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     },
   },
   {
@@ -75,7 +79,9 @@ const mockLeads: Lead[] = [
       phone: '0923456789',
       company: '123 Group',
       company_id: 'c1',
+      status: 'active',
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     },
   },
   {
@@ -95,7 +101,9 @@ const mockLeads: Lead[] = [
       phone: '0934567890',
       company: 'DEF Ltd',
       company_id: 'c1',
+      status: 'active',
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     },
   },
   {
@@ -115,7 +123,9 @@ const mockLeads: Lead[] = [
       phone: '0945678901',
       company: 'GHI Corp',
       company_id: 'c1',
+      status: 'active',
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     },
   },
   {
@@ -135,7 +145,9 @@ const mockLeads: Lead[] = [
       phone: '0956789012',
       company: 'JKL Industries',
       company_id: 'c1',
+      status: 'active',
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     },
   },
 ];
@@ -143,7 +155,7 @@ const mockLeads: Lead[] = [
 export const CRM = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [leads, setLeads] = useState<Lead[]>(mockLeads);
+  const [leads] = useState<Lead[]>(mockLeads);
 
   useEffect(() => {
     setPageTitle('CRM');
@@ -341,7 +353,7 @@ export const CRM = () => {
               <p className="text-xs text-slate-600 mb-2">Gán cho</p>
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-deo-accent rounded-full flex items-center justify-center text-xs font-bold text-white">
-                  {selectedLead.assignee?.name.charAt(0)}
+                  {selectedLead.assignee?.name?.charAt(0)}
                 </div>
                 <p className="text-sm text-slate-900">
                   {selectedLead.assignee?.name}

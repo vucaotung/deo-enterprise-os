@@ -1,6 +1,6 @@
 import { Client, Task, Agent } from '@/types';
 import { Badge } from './Badge';
-import { formatDate, getStatusColor } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 
 interface ContextPanelProps {
   client?: Client;
@@ -41,9 +41,9 @@ export const ContextPanel = ({ client, task, agent }: ContextPanelProps) => {
             <div className="flex gap-2">
               <Badge
                 variant={
-                  task.status === 'DONE'
+                  task.status === 'completed'
                     ? 'success'
-                    : task.status === 'IN_PROGRESS'
+                    : task.status === 'in_progress'
                       ? 'info'
                       : 'warning'
                 }
@@ -63,7 +63,7 @@ export const ContextPanel = ({ client, task, agent }: ContextPanelProps) => {
               </Badge>
             </div>
             <p className="text-xs text-slate-500 mt-2">
-              Hạn: {formatDate(task.due_date)}
+              Hạn: {task.due_date ? formatDate(task.due_date) : '—'}
             </p>
           </div>
         </div>
