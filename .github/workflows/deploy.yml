@@ -99,6 +99,33 @@ jobs:
             echo "==> Stopping previous stack (keeping volumes)"
             $COMPOSE down --remove-orphans || true
 
+            echo "==> Diagnosing what holds host port 80"
+            ss -lnpt 'sport = :80' 2>/dev/null || netstat -lnpt 2>/dev/null | awk '$4 ~ /:80$/' || true
+            echo "    docker containers binding :80 ->"
+            docker ps --format '{{.ID}}\t{{.Names}}\t{{.Ports}}' | awk '/:80->/' || true
+
+            echo "==> Freeing host port 80 if held by stray containers or services"
+            # 1) stop any docker container binding host :80 that isn't ours (already brought down above)
+            for cid in $(docker ps -q --filter "publish=80"); do
+              echo "    stopping stray docker container $cid"
+              docker stop "$cid" || true
+            done
+            # 2) stop common system services that may grab :80
+            for svc in nginx apache2 httpd caddy lighttpd haproxy; do
+              if systemctl is-active --quiet "$svc" 2>/dev/null; then
+                echo "    stopping + disabling system service: $svc"
+                systemctl stop "$svc" || true
+                systemctl disable "$svc" || true
+              fi
+            done
+            # 3) recheck
+            if ss -lnpt 'sport = :80' 2>/dev/null | grep -q LISTEN; then
+              echo "!! port 80 STILL held after cleanup:" >&2
+              ss -lnpt 'sport = :80' >&2
+              exit 4
+            fi
+            echo "    port 80 is free"
+
             echo "==> Pruning dangling images"
             docker image prune -f >/dev/null
 
