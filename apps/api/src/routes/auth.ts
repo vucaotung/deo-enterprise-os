@@ -154,6 +154,38 @@ router.post('/signup', async (req, res: Response) => {
   });
 });
 
+const changePasswordSchema = z.object({
+  current_password: z.string().min(1),
+  new_password: z.string().min(8).max(128),
+});
+
+router.post('/change-password', authMiddleware, async (req: AuthRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+
+  const parsed = changePasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid body', details: parsed.error.flatten() });
+  }
+  const { current_password, new_password } = parsed.data;
+
+  const result = await dbQuery('SELECT password_hash FROM deo.users WHERE id = $1', [req.user.id]);
+  const user = result.rows[0];
+  if (!user || !user.password_hash) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  const ok = await bcrypt.compare(current_password, user.password_hash);
+  if (!ok) {
+    return res.status(401).json({ error: 'Current password is incorrect' });
+  }
+
+  const hash = await bcrypt.hash(new_password, 12);
+  await dbQuery(
+    `UPDATE deo.users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+    [hash, req.user.id]
+  );
+  res.json({ ok: true });
+});
+
 router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) {

@@ -100,6 +100,25 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
+import { requireRole } from '../middleware/role';
+
+// POST /api/agents/:id/rotate-token — admin only; returns the new token (one-shot reveal)
+router.post('/:id/rotate-token', authMiddleware, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await dbQuery(
+      `UPDATE deo.agents SET api_token = gen_random_uuid(), updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, slug, name, api_token`,
+      [req.params.id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Agent not found' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Rotate agent token error', error);
+    res.status(500).json({ error: 'Failed to rotate token' });
+  }
+});
+
 // GET /api/agents/:id/events — recent events for live agent feed
 router.get('/:id/events', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {

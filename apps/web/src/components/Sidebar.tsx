@@ -15,6 +15,7 @@ import {
   LogOut,
   UserCog,
   LifeBuoy,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -33,11 +34,13 @@ export const Sidebar = () => {
     { icon: Zap, label: 'Agents', path: '/agents' },
     { icon: HelpCircle, label: 'Làm rõ', path: '/clarifications' },
     { icon: BookOpen, label: 'Sổ ghi chép', path: '/notebooks' },
+    { icon: SettingsIcon, label: 'Cài đặt', path: '/settings' },
     { icon: LifeBuoy, label: 'Hướng dẫn', path: '/help' },
   ];
 
   const adminNavItems = [
     { icon: UserCog, label: 'Tài khoản', path: '/admin/users' },
+    { icon: Zap, label: 'Quản lý Agent', path: '/admin/agents' },
   ];
 
   const isAdminOrManager = user?.role === 'admin' || user?.role === 'manager';

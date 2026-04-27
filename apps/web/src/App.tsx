@@ -8,6 +8,7 @@ import { Signup } from '@/pages/Signup';
 
 const Dashboard = lazy(() => import('@/pages/Dashboard').then(m => ({ default: m.Dashboard })));
 const AdminUsers = lazy(() => import('@/pages/AdminUsers').then(m => ({ default: m.AdminUsers })));
+const AdminAgents = lazy(() => import('@/pages/AdminAgents').then(m => ({ default: m.AdminAgents })));
 const Chat = lazy(() => import('@/pages/Chat').then(m => ({ default: m.Chat })));
 const Tasks = lazy(() => import('@/pages/Tasks').then(m => ({ default: m.Tasks })));
 const Projects = lazy(() => import('@/pages/Projects').then(m => ({ default: m.Projects })));
@@ -19,6 +20,7 @@ const Agents = lazy(() => import('@/pages/Agents').then(m => ({ default: m.Agent
 const Clarifications = lazy(() => import('@/pages/Clarifications').then(m => ({ default: m.Clarifications })));
 const Notebooks = lazy(() => import('@/pages/Notebooks').then(m => ({ default: m.Notebooks })));
 const Help = lazy(() => import('@/pages/Help').then(m => ({ default: m.Help })));
+const Settings = lazy(() => import('@/pages/Settings').then(m => ({ default: m.Settings })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -100,7 +102,9 @@ const AppRoutes = () => {
         <Route path="/clarifications" element={<Suspense fallback={<RouteFallback />}><Clarifications /></Suspense>} />
         <Route path="/notebooks" element={<Suspense fallback={<RouteFallback />}><Notebooks /></Suspense>} />
         <Route path="/admin/users" element={<Suspense fallback={<RouteFallback />}><AdminUsers /></Suspense>} />
+        <Route path="/admin/agents" element={<Suspense fallback={<RouteFallback />}><AdminAgents /></Suspense>} />
         <Route path="/help" element={<Suspense fallback={<RouteFallback />}><Help /></Suspense>} />
+        <Route path="/settings" element={<Suspense fallback={<RouteFallback />}><Settings /></Suspense>} />
       </Route>
     </Routes>
   );

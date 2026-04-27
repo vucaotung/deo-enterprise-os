@@ -326,6 +326,21 @@ export const getMessages = async (conversationId: string): Promise<any[]> => {
   return unwrapList(data);
 };
 
+export const changePassword = async (current_password: string, new_password: string) => {
+  const { data } = await api.post('/auth/change-password', { current_password, new_password });
+  return data;
+};
+
+export const rotateAgentToken = async (id: string): Promise<{ id: string; slug: string; name: string; api_token: string }> => {
+  const { data } = await api.post(`/agents/${id}/rotate-token`);
+  return data;
+};
+
+export const getAgentEvents = async (id: string, limit = 30): Promise<any[]> => {
+  const { data } = await api.get(`/agents/${id}/events`, { params: { limit } });
+  return data.events || [];
+};
+
 export const deleteClient = async (id: string): Promise<void> => {
   await api.delete(`/clients/${id}`);
 };
