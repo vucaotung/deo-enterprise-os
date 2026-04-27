@@ -108,12 +108,12 @@ const mockNotebooks: Record<string, Array<{ id: string; title: string; type: str
   p3: [{ id: 'n4', title: 'CRM route restructure draft', type: 'meeting_note', updatedAt: new Date(Date.now() - 259200000).toISOString() }],
 };
 
-const statusVariantMap: Record<Project['status'], 'info' | 'warning' | 'success' | 'danger' | 'gray'> = {
+const statusVariantMap: Record<Project['status'], 'info' | 'warning' | 'success' | 'error' | 'default'> = {
   planning: 'warning',
   active: 'info',
-  on_hold: 'gray',
+  on_hold: 'default',
   completed: 'success',
-  cancelled: 'danger',
+  cancelled: 'error',
 };
 
 const statusLabelMap: Record<Project['status'], string> = {

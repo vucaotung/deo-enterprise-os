@@ -1,0 +1,193 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - claude/deploy-enterprise-os-vps-eunda
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      no_cache:
+        description: 'Build with --no-cache'
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout (for ref info only)
+        uses: actions/checkout@v4
+
+      - name: Resolve build flags
+        id: flags
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.no_cache }}" = "false" ]; then
+            echo "no_cache=" >> "$GITHUB_OUTPUT"
+          else
+            echo "no_cache=--no-cache" >> "$GITHUB_OUTPUT"
+          fi
+          echo "git_sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "git_ref=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy on VPS over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 173.249.51.69
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          command_timeout: 25m
+          script: |
+            set -euo pipefail
+
+            REPO_DIR=/opt/deo-enterprise-os
+            BRANCH=${{ steps.flags.outputs.git_ref }}
+            SHA=${{ steps.flags.outputs.git_sha }}
+            NO_CACHE='${{ steps.flags.outputs.no_cache }}'
+
+            REPO_URL="https://github.com/vucaotung/deo-enterprise-os.git"
+            ENV_BACKUP="/tmp/deo-os.env.backup"
+
+            echo "==> Repo: $REPO_DIR  Branch: $BRANCH  SHA: $SHA"
+
+            if [ -d "$REPO_DIR/.git" ]; then
+              echo "==> Existing git repo found, fast-forwarding"
+              cd "$REPO_DIR"
+              git remote set-url origin "$REPO_URL" || git remote add origin "$REPO_URL"
+              git fetch origin "$BRANCH"
+              git checkout -B "$BRANCH" "origin/$BRANCH"
+              git reset --hard "origin/$BRANCH"
+            else
+              echo "==> No git repo at $REPO_DIR — bootstrapping"
+              if [ -d "$REPO_DIR" ] && [ -f "$REPO_DIR/.env" ]; then
+                echo "    preserving existing .env -> $ENV_BACKUP"
+                cp -f "$REPO_DIR/.env" "$ENV_BACKUP"
+              fi
+              if [ -d "$REPO_DIR" ]; then
+                BACKUP="${REPO_DIR}.bak.$(date -u +%Y%m%dT%H%M%SZ)"
+                echo "    moving existing $REPO_DIR -> $BACKUP"
+                mv "$REPO_DIR" "$BACKUP"
+              fi
+              mkdir -p "$(dirname "$REPO_DIR")"
+              git clone --branch "$BRANCH" --single-branch "$REPO_URL" "$REPO_DIR"
+              cd "$REPO_DIR"
+              if [ -f "$ENV_BACKUP" ]; then
+                echo "    restoring .env from backup"
+                cp -f "$ENV_BACKUP" "$REPO_DIR/.env"
+              fi
+            fi
+
+            git log -1 --oneline
+
+            if [ ! -f "$REPO_DIR/.env" ]; then
+              echo "!! .env missing on VPS. Need to create it manually." >&2
+              echo "   Look at .env.example for required keys." >&2
+              exit 1
+            fi
+
+            echo "==> Pruning old repo backups (>1 day old)"
+            find "$(dirname "$REPO_DIR")" -maxdepth 1 -name "$(basename "$REPO_DIR").bak.*" -type d -mtime +1 -print -exec rm -rf {} + || true
+
+            echo "==> Ensuring auto-generated secrets exist in .env (before any compose call)"
+            ensure_var() {
+              local key=$1
+              if ! grep -q "^${key}=" "$REPO_DIR/.env"; then
+                local val=$(openssl rand -base64 24 | tr -d '=+/' | head -c 24)
+                printf '\n%s=%s\n' "$key" "$val" >> "$REPO_DIR/.env"
+                echo "    appended ${key} (auto-generated)"
+              else
+                echo "    ${key} already set"
+              fi
+            }
+            ensure_var GRAFANA_ADMIN_PASSWORD
+            ensure_var ADMIN_INITIAL_PASSWORD
+            grep -q "^GRAFANA_ADMIN_USER=" "$REPO_DIR/.env" || echo "GRAFANA_ADMIN_USER=admin" >> "$REPO_DIR/.env"
+            grep -q "^GRAFANA_ROOT_URL=" "$REPO_DIR/.env" || echo "GRAFANA_ROOT_URL=https://grafana.enterpriseos.bond" >> "$REPO_DIR/.env"
+            grep -q "^ADMIN_EMAIL=" "$REPO_DIR/.env" || echo "ADMIN_EMAIL=admin@enterpriseos.bond" >> "$REPO_DIR/.env"
+            grep -q "^FRONTEND_URL=" "$REPO_DIR/.env" || echo "FRONTEND_URL=https://dash.enterpriseos.bond" >> "$REPO_DIR/.env"
+
+            COMPOSE="docker compose -f docker-compose.prod.yml"
+
+            echo "==> Free non-docker services on port 80 (we never tear down compose stack until the new one is ready)"
+            for svc in nginx apache2 httpd caddy lighttpd haproxy; do
+              if systemctl is-active --quiet "$svc" 2>/dev/null; then
+                echo "    stopping + disabling system service: $svc"
+                systemctl stop "$svc" || true
+                systemctl disable "$svc" || true
+              fi
+            done
+
+            echo "==> Pruning dangling images"
+            docker image prune -f >/dev/null
+
+            echo "==> Building images $NO_CACHE (does not touch running stack)"
+            $COMPOSE build $NO_CACHE --pull
+
+            echo "==> Ensuring infra (postgres, redis, chromadb, loki) is up"
+            $COMPOSE up -d postgres redis chromadb loki
+
+            for i in $(seq 1 90); do
+              if $COMPOSE exec -T postgres pg_isready -U "${POSTGRES_USER:-deo}" >/dev/null 2>&1; then
+                echo "postgres ready (after ${i}s)"
+                break
+              fi
+              sleep 1
+              if [ "$i" = "90" ]; then
+                echo "!! postgres never became ready"
+                $COMPOSE logs --tail=80 postgres
+                exit 3
+              fi
+            done
+
+            echo "==> Running DB migrations + admin seed (with new image; old api keeps serving)"
+            $COMPOSE run --rm --no-deps -T api node dist/scripts/migrate.js
+
+            echo "==> Swapping in new app containers (recreate api, worker, web, nginx, tunnel)"
+            $COMPOSE up -d --remove-orphans
+
+            echo "==> Service status"
+            $COMPOSE ps
+
+            echo "==> API health probe (internal, /api/health)"
+            for i in $(seq 1 30); do
+              if $COMPOSE exec -T api node -e "require('http').get('http://localhost:3001/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))" 2>/dev/null; then
+                echo "api /api/health OK after ${i}s"
+                break
+              fi
+              sleep 2
+              if [ "$i" = "30" ]; then
+                echo "!! api /api/health failed; dumping last 80 lines"
+                $COMPOSE logs --tail=80 api
+                exit 2
+              fi
+            done
+
+            echo "==> Edge probes via nginx"
+            $COMPOSE exec -T nginx wget -qO- -S http://web/ 2>&1 | head -5 || true
+            $COMPOSE exec -T nginx wget -qO- -S http://api:3001/api/health 2>&1 | head -5 || true
+
+            echo "==> Tail of api logs"
+            $COMPOSE logs --tail=30 api || true
+
+            echo "==> Deployment OK"
+
+      - name: Public smoke tests
+        if: always()
+        run: |
+          echo "== api.enterpriseos.bond/api/health =="
+          curl -fsSL --max-time 15 https://api.enterpriseos.bond/api/health || echo "FAILED"
+          echo
+          echo "== dash.enterpriseos.bond/health (rewrite) =="
+          curl -fsSL --max-time 15 https://dash.enterpriseos.bond/health || echo "FAILED"
+          echo
+          echo "== dash.enterpriseos.bond/ (HEAD) =="
+          curl -fsSI --max-time 15 https://dash.enterpriseos.bond/ | head -5 || echo "FAILED"

@@ -116,8 +116,101 @@ export const login = async (username: string, password: string): Promise<LoginRe
       id: String(data.user.id),
       username: data.user.full_name || data.user.email,
       email: data.user.email,
+      name: data.user.full_name,
+      role: data.user.role,
+      company_id: data.user.company_id,
     },
   };
+};
+
+export interface InvitePreview {
+  email: string;
+  full_name?: string;
+  role: 'admin' | 'manager' | 'staff' | 'agent_handler';
+  company_name?: string;
+  expires_at: string;
+}
+
+export const getInvite = async (code: string): Promise<InvitePreview> => {
+  const { data } = await api.get(`/invites/${encodeURIComponent(code)}`);
+  return data;
+};
+
+export const signup = async (payload: {
+  code: string;
+  password: string;
+  full_name?: string;
+}): Promise<LoginResponse> => {
+  const { data } = await api.post('/auth/signup', payload);
+  return {
+    token: data.token,
+    user: {
+      id: String(data.user.id),
+      username: data.user.full_name || data.user.email,
+      email: data.user.email,
+      name: data.user.full_name,
+      role: data.user.role,
+      company_id: data.user.company_id,
+    },
+  };
+};
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  full_name?: string;
+  is_active: boolean;
+  company_role: 'admin' | 'manager' | 'staff' | 'agent_handler';
+  last_login_at?: string;
+  created_at: string;
+}
+
+export const listUsers = async (): Promise<AdminUser[]> => {
+  const { data } = await api.get('/users');
+  return data.users;
+};
+
+export const updateUser = async (id: string, patch: Partial<{
+  is_active: boolean;
+  role: 'admin' | 'manager' | 'staff' | 'agent_handler';
+  full_name: string;
+  password: string;
+}>) => {
+  const { data } = await api.patch(`/users/${id}`, patch);
+  return data;
+};
+
+export const disableUser = async (id: string) => {
+  await api.delete(`/users/${id}`);
+};
+
+export interface Invite {
+  id: string;
+  email: string;
+  full_name?: string;
+  role: 'admin' | 'manager' | 'staff' | 'agent_handler';
+  created_at: string;
+  expires_at: string;
+  used_at?: string;
+  created_by_email?: string;
+}
+
+export const listInvites = async (): Promise<Invite[]> => {
+  const { data } = await api.get('/invites');
+  return data.invites;
+};
+
+export const createInvite = async (payload: {
+  email: string;
+  full_name?: string;
+  role: 'admin' | 'manager' | 'staff' | 'agent_handler';
+}): Promise<{ invite: Invite; invite_url: string; email: { delivered: boolean; reason?: string } }> => {
+  const { data } = await api.post('/invites', payload);
+  return data;
+};
+
+export const revokeInvite = async (id: string) => {
+  await api.delete(`/invites/${id}`);
 };
 
 export const getDashboardSummary = async (): Promise<DashboardSummary> => {
@@ -201,6 +294,51 @@ export const createClient = async (client: Partial<Client>): Promise<Client> => 
 export const updateClient = async (id: string, updates: Partial<Client>): Promise<Client> => {
   const { data } = await api.patch(`/clients/${id}`, updates);
   return data;
+};
+
+export const getLeads = async (): Promise<any[]> => {
+  const { data } = await api.get('/leads');
+  return unwrapList(data);
+};
+
+export const getNotebooks = async (): Promise<any[]> => {
+  const { data } = await api.get('/notebooks');
+  return unwrapList(data);
+};
+
+export const getClarifications = async (): Promise<any[]> => {
+  const { data } = await api.get('/clarifications');
+  return unwrapList(data);
+};
+
+export const getAgents = async (): Promise<any[]> => {
+  const { data } = await api.get('/agents');
+  return unwrapList(data);
+};
+
+export const getConversations = async (): Promise<any[]> => {
+  const { data } = await api.get('/conversations');
+  return unwrapList(data);
+};
+
+export const getMessages = async (conversationId: string): Promise<any[]> => {
+  const { data } = await api.get(`/conversations/${conversationId}/messages`);
+  return unwrapList(data);
+};
+
+export const changePassword = async (current_password: string, new_password: string) => {
+  const { data } = await api.post('/auth/change-password', { current_password, new_password });
+  return data;
+};
+
+export const rotateAgentToken = async (id: string): Promise<{ id: string; slug: string; name: string; api_token: string }> => {
+  const { data } = await api.post(`/agents/${id}/rotate-token`);
+  return data;
+};
+
+export const getAgentEvents = async (id: string, limit = 30): Promise<any[]> => {
+  const { data } = await api.get(`/agents/${id}/events`, { params: { limit } });
+  return data.events || [];
 };
 
 export const deleteClient = async (id: string): Promise<void> => {

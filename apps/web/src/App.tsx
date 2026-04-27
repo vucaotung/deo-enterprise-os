@@ -1,19 +1,26 @@
+import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
 import { Login } from '@/pages/Login';
-import { Dashboard } from '@/pages/Dashboard';
-import { Chat } from '@/pages/Chat';
-import { Tasks } from '@/pages/Tasks';
-import { Projects } from '@/pages/Projects';
-import { ProjectDetail } from '@/pages/ProjectDetail';
-import { ProjectTasks } from '@/pages/ProjectTasks';
-import { CRM } from '@/pages/CRM';
-import { Finance } from '@/pages/Finance';
-import { Agents } from '@/pages/Agents';
-import { Clarifications } from '@/pages/Clarifications';
-import { Notebooks } from '@/pages/Notebooks';
+import { Signup } from '@/pages/Signup';
+
+const Dashboard = lazy(() => import('@/pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const AdminUsers = lazy(() => import('@/pages/AdminUsers').then(m => ({ default: m.AdminUsers })));
+const AdminAgents = lazy(() => import('@/pages/AdminAgents').then(m => ({ default: m.AdminAgents })));
+const Chat = lazy(() => import('@/pages/Chat').then(m => ({ default: m.Chat })));
+const Tasks = lazy(() => import('@/pages/Tasks').then(m => ({ default: m.Tasks })));
+const Projects = lazy(() => import('@/pages/Projects').then(m => ({ default: m.Projects })));
+const ProjectDetail = lazy(() => import('@/pages/ProjectDetail').then(m => ({ default: m.ProjectDetail })));
+const ProjectTasks = lazy(() => import('@/pages/ProjectTasks').then(m => ({ default: m.ProjectTasks })));
+const CRM = lazy(() => import('@/pages/CRM').then(m => ({ default: m.CRM })));
+const Finance = lazy(() => import('@/pages/Finance').then(m => ({ default: m.Finance })));
+const Agents = lazy(() => import('@/pages/Agents').then(m => ({ default: m.Agents })));
+const Clarifications = lazy(() => import('@/pages/Clarifications').then(m => ({ default: m.Clarifications })));
+const Notebooks = lazy(() => import('@/pages/Notebooks').then(m => ({ default: m.Notebooks })));
+const Help = lazy(() => import('@/pages/Help').then(m => ({ default: m.Help })));
+const Settings = lazy(() => import('@/pages/Settings').then(m => ({ default: m.Settings })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,6 +37,12 @@ const FullScreenLoader = () => (
       <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-deo-accent mb-4"></div>
       <p className="text-slate-600">Đang tải...</p>
     </div>
+  </div>
+);
+
+const RouteFallback = () => (
+  <div className="flex items-center justify-center h-64">
+    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-deo-accent"></div>
   </div>
 );
 
@@ -63,23 +76,35 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/signup"
+        element={
+          <PublicRoute>
+            <Signup />
+          </PublicRoute>
+        }
+      />
+      <Route
         element={
           <PrivateRoute>
             <Layout />
           </PrivateRoute>
         }
       >
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/chat" element={<Chat />} />
-        <Route path="/tasks" element={<Tasks />} />
-        <Route path="/projects" element={<Projects />} />
-        <Route path="/projects/:id" element={<ProjectDetail />} />
-        <Route path="/projects/:id/tasks" element={<ProjectTasks />} />
-        <Route path="/crm" element={<CRM />} />
-        <Route path="/finance" element={<Finance />} />
-        <Route path="/agents" element={<Agents />} />
-        <Route path="/clarifications" element={<Clarifications />} />
-        <Route path="/notebooks" element={<Notebooks />} />
+        <Route path="/" element={<Suspense fallback={<RouteFallback />}><Dashboard /></Suspense>} />
+        <Route path="/chat" element={<Suspense fallback={<RouteFallback />}><Chat /></Suspense>} />
+        <Route path="/tasks" element={<Suspense fallback={<RouteFallback />}><Tasks /></Suspense>} />
+        <Route path="/projects" element={<Suspense fallback={<RouteFallback />}><Projects /></Suspense>} />
+        <Route path="/projects/:id" element={<Suspense fallback={<RouteFallback />}><ProjectDetail /></Suspense>} />
+        <Route path="/projects/:id/tasks" element={<Suspense fallback={<RouteFallback />}><ProjectTasks /></Suspense>} />
+        <Route path="/crm" element={<Suspense fallback={<RouteFallback />}><CRM /></Suspense>} />
+        <Route path="/finance" element={<Suspense fallback={<RouteFallback />}><Finance /></Suspense>} />
+        <Route path="/agents" element={<Suspense fallback={<RouteFallback />}><Agents /></Suspense>} />
+        <Route path="/clarifications" element={<Suspense fallback={<RouteFallback />}><Clarifications /></Suspense>} />
+        <Route path="/notebooks" element={<Suspense fallback={<RouteFallback />}><Notebooks /></Suspense>} />
+        <Route path="/admin/users" element={<Suspense fallback={<RouteFallback />}><AdminUsers /></Suspense>} />
+        <Route path="/admin/agents" element={<Suspense fallback={<RouteFallback />}><AdminAgents /></Suspense>} />
+        <Route path="/help" element={<Suspense fallback={<RouteFallback />}><Help /></Suspense>} />
+        <Route path="/settings" element={<Suspense fallback={<RouteFallback />}><Settings /></Suspense>} />
       </Route>
     </Routes>
   );

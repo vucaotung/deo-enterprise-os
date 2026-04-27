@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Clarification } from '@/types';
 import { Badge } from '@/components/Badge';
-import { formatDate, formatTimeAgo } from '@/lib/utils';
+import { FallbackBanner } from '@/components/FallbackBanner';
+import { formatTimeAgo } from '@/lib/utils';
 import { AlertCircle, CheckCircle, Send } from 'lucide-react';
+import { useApiWithFallback } from '@/hooks/useApiWithFallback';
+import { getClarifications } from '@/api/client';
 
 interface OutletContext {
   setPageTitle: (title: string) => void;
@@ -35,7 +38,7 @@ const mockClarifications: Clarification[] = [
       id: 't1',
       title: 'Phân tích dữ liệu thị trường',
       description: 'Phân tích xu hướng bán hàng',
-      status: 'IN_PROGRESS',
+      status: 'in_progress',
       priority: 'high',
       company_id: 'c1',
       project_id: 'p1',
@@ -122,14 +125,20 @@ const mockClarifications: Clarification[] = [
 export const Clarifications = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
   const [activeTab, setActiveTab] = useState<'pending' | 'answered'>('pending');
-  const [clarifications, setClarifications] = useState<Clarification[]>(
+  const { items: serverItems, usingFallback } = useApiWithFallback<Clarification>(
+    getClarifications,
     mockClarifications
   );
+  const [clarifications, setClarifications] = useState<Clarification[]>(mockClarifications);
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setPageTitle('Làm rõ');
   }, [setPageTitle]);
+
+  useEffect(() => {
+    setClarifications(serverItems);
+  }, [serverItems]);
 
   const pending = clarifications.filter((c) => !c.answered_at);
   const answered = clarifications.filter((c) => c.answered_at);
@@ -160,6 +169,7 @@ export const Clarifications = () => {
 
   return (
     <div className="space-y-6">
+      <FallbackBanner visible={usingFallback} />
       <div className="flex gap-4">
         <button
           onClick={() => setActiveTab('pending')}

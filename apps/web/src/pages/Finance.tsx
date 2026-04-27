@@ -3,8 +3,11 @@ import { useOutletContext } from 'react-router-dom';
 import { Expense } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { Modal } from '@/components/Modal';
+import { FallbackBanner } from '@/components/FallbackBanner';
 import { Plus } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { useApiWithFallback } from '@/hooks/useApiWithFallback';
+import { getExpenses } from '@/api/client';
 
 interface OutletContext {
   setPageTitle: (title: string) => void;
@@ -113,7 +116,7 @@ const categoryIcons: Record<string, string> = {
 
 export const Finance = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
-  const [expenses, setExpenses] = useState<Expense[]>(mockExpenses);
+  const { items: expenses, usingFallback } = useApiWithFallback<Expense>(getExpenses, mockExpenses);
   const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
@@ -126,10 +129,11 @@ export const Finance = () => {
 
   const groupedByCategory = expenses.reduce(
     (acc, expense) => {
-      if (!acc[expense.category]) {
-        acc[expense.category] = [];
+      const cat = expense.category ?? 'Khác';
+      if (!acc[cat]) {
+        acc[cat] = [];
       }
-      acc[expense.category].push(expense);
+      acc[cat].push(expense);
       return acc;
     },
     {} as Record<string, Expense[]>
@@ -137,6 +141,7 @@ export const Finance = () => {
 
   return (
     <div className="space-y-6">
+      <FallbackBanner visible={usingFallback} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent>
@@ -225,7 +230,7 @@ export const Finance = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <span>
-                          {categoryIcons[expense.category] || '📋'}
+                          {categoryIcons[expense.category ?? ''] || '📋'}
                         </span>
                         <p className="text-sm text-slate-600">
                           {expense.category}

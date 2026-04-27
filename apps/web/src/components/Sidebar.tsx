@@ -13,6 +13,9 @@ import {
   Menu,
   X,
   LogOut,
+  UserCog,
+  LifeBuoy,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -21,7 +24,7 @@ export const Sidebar = () => {
   const { logout, user } = useAuth();
   const displayName = user?.username || 'User';
 
-  const navItems = [
+  const baseNavItems = [
     { icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/' },
     { icon: MessageSquare, label: 'Chat', path: '/chat' },
     { icon: CheckSquare, label: 'Công việc', path: '/tasks' },
@@ -31,7 +34,17 @@ export const Sidebar = () => {
     { icon: Zap, label: 'Agents', path: '/agents' },
     { icon: HelpCircle, label: 'Làm rõ', path: '/clarifications' },
     { icon: BookOpen, label: 'Sổ ghi chép', path: '/notebooks' },
+    { icon: SettingsIcon, label: 'Cài đặt', path: '/settings' },
+    { icon: LifeBuoy, label: 'Hướng dẫn', path: '/help' },
   ];
+
+  const adminNavItems = [
+    { icon: UserCog, label: 'Tài khoản', path: '/admin/users' },
+    { icon: Zap, label: 'Quản lý Agent', path: '/admin/agents' },
+  ];
+
+  const isAdminOrManager = user?.role === 'admin' || user?.role === 'manager';
+  const navItems = isAdminOrManager ? [...baseNavItems, ...adminNavItems] : baseNavItems;
 
   return (
     <>

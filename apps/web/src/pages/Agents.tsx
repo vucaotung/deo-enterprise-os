@@ -3,7 +3,10 @@ import { useOutletContext } from 'react-router-dom';
 import { Agent } from '@/types';
 import { AgentCard } from '@/components/AgentCard';
 import { Modal } from '@/components/Modal';
+import { FallbackBanner } from '@/components/FallbackBanner';
 import { Plus } from 'lucide-react';
+import { useApiWithFallback } from '@/hooks/useApiWithFallback';
+import { getAgents } from '@/api/client';
 
 interface OutletContext {
   setPageTitle: (title: string) => void;
@@ -86,12 +89,17 @@ const mockAgents: Agent[] = [
 
 export const Agents = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
+  const { items: serverAgents, usingFallback } = useApiWithFallback<Agent>(getAgents, mockAgents);
   const [agents, setAgents] = useState<Agent[]>(mockAgents);
   const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     setPageTitle('Agents');
   }, [setPageTitle]);
+
+  useEffect(() => {
+    setAgents(serverAgents);
+  }, [serverAgents]);
 
   const onlineCount = agents.filter((a) => a.status === 'online').length;
   const sleepingCount = agents.filter((a) => a.status === 'sleeping').length;
@@ -116,6 +124,7 @@ export const Agents = () => {
 
   return (
     <div className="space-y-6">
+      <FallbackBanner visible={usingFallback} />
       <div className="flex items-center justify-between">
         <div className="flex gap-6">
           <div className="flex items-center gap-2">
