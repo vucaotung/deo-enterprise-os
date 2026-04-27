@@ -4,8 +4,11 @@ import { Notebook } from '@/types';
 import { Badge } from '@/components/Badge';
 import { Modal } from '@/components/Modal';
 import { SlidePanel } from '@/components/SlidePanel';
+import { FallbackBanner } from '@/components/FallbackBanner';
 import { Plus, Grid, List as ListIcon } from 'lucide-react';
 import { formatDate, formatTimeAgo } from '@/lib/utils';
+import { useApiWithFallback } from '@/hooks/useApiWithFallback';
+import { getNotebooks } from '@/api/client';
 
 interface OutletContext {
   setPageTitle: (title: string) => void;
@@ -78,7 +81,7 @@ const typeLabels: Record<string, string> = {
 export const Notebooks = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [notebooks] = useState<Notebook[]>(mockNotebooks);
+  const { items: notebooks, usingFallback } = useApiWithFallback<Notebook>(getNotebooks, mockNotebooks);
   const [selectedNotebook, setSelectedNotebook] = useState<Notebook | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');
@@ -94,6 +97,7 @@ export const Notebooks = () => {
 
   return (
     <div className="space-y-6">
+      <FallbackBanner visible={usingFallback} />
       <div className="flex items-center justify-between">
         <div className="flex gap-2">
           <button

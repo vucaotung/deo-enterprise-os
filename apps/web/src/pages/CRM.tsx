@@ -3,8 +3,11 @@ import { useOutletContext } from 'react-router-dom';
 import { Lead } from '@/types';
 import { Badge } from '@/components/Badge';
 import { SlidePanel } from '@/components/SlidePanel';
+import { FallbackBanner } from '@/components/FallbackBanner';
 import { Plus } from 'lucide-react';
 import { getStatusColor, getStatusLabel } from '@/lib/utils';
+import { useApiWithFallback } from '@/hooks/useApiWithFallback';
+import { getLeads } from '@/api/client';
 
 interface OutletContext {
   setPageTitle: (title: string) => void;
@@ -155,7 +158,7 @@ const mockLeads: Lead[] = [
 export const CRM = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [leads] = useState<Lead[]>(mockLeads);
+  const { items: leads, usingFallback } = useApiWithFallback<Lead>(getLeads, mockLeads);
 
   useEffect(() => {
     setPageTitle('CRM');
@@ -181,6 +184,7 @@ export const CRM = () => {
 
   return (
     <div className="space-y-6">
+      <FallbackBanner visible={usingFallback} />
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold text-slate-900">
           Đường ống bán hàng

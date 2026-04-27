@@ -296,6 +296,36 @@ export const updateClient = async (id: string, updates: Partial<Client>): Promis
   return data;
 };
 
+export const getLeads = async (): Promise<any[]> => {
+  const { data } = await api.get('/leads');
+  return unwrapList(data);
+};
+
+export const getNotebooks = async (): Promise<any[]> => {
+  const { data } = await api.get('/notebooks');
+  return unwrapList(data);
+};
+
+export const getClarifications = async (): Promise<any[]> => {
+  const { data } = await api.get('/clarifications');
+  return unwrapList(data);
+};
+
+export const getAgents = async (): Promise<any[]> => {
+  const { data } = await api.get('/agents');
+  return unwrapList(data);
+};
+
+export const getConversations = async (): Promise<any[]> => {
+  const { data } = await api.get('/conversations');
+  return unwrapList(data);
+};
+
+export const getMessages = async (conversationId: string): Promise<any[]> => {
+  const { data } = await api.get(`/conversations/${conversationId}/messages`);
+  return unwrapList(data);
+};
+
 export const deleteClient = async (id: string): Promise<void> => {
   await api.delete(`/clients/${id}`);
 };

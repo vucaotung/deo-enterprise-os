@@ -3,8 +3,11 @@ import { useOutletContext } from 'react-router-dom';
 import { Expense } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { Modal } from '@/components/Modal';
+import { FallbackBanner } from '@/components/FallbackBanner';
 import { Plus } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { useApiWithFallback } from '@/hooks/useApiWithFallback';
+import { getExpenses } from '@/api/client';
 
 interface OutletContext {
   setPageTitle: (title: string) => void;
@@ -113,7 +116,7 @@ const categoryIcons: Record<string, string> = {
 
 export const Finance = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
-  const [expenses] = useState<Expense[]>(mockExpenses);
+  const { items: expenses, usingFallback } = useApiWithFallback<Expense>(getExpenses, mockExpenses);
   const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
@@ -138,6 +141,7 @@ export const Finance = () => {
 
   return (
     <div className="space-y-6">
+      <FallbackBanner visible={usingFallback} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent>
