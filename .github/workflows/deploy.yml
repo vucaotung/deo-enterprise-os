@@ -1,0 +1,129 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - claude/deploy-enterprise-os-vps-eunda
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      no_cache:
+        description: 'Build with --no-cache'
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout (for ref info only)
+        uses: actions/checkout@v4
+
+      - name: Resolve build flags
+        id: flags
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.no_cache }}" = "false" ]; then
+            echo "no_cache=" >> "$GITHUB_OUTPUT"
+          else
+            echo "no_cache=--no-cache" >> "$GITHUB_OUTPUT"
+          fi
+          echo "git_sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "git_ref=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy on VPS over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 173.249.51.69
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          command_timeout: 25m
+          script: |
+            set -euo pipefail
+
+            REPO_DIR=/opt/deo-enterprise-os
+            BRANCH=${{ steps.flags.outputs.git_ref }}
+            SHA=${{ steps.flags.outputs.git_sha }}
+            NO_CACHE='${{ steps.flags.outputs.no_cache }}'
+
+            echo "==> Repo: $REPO_DIR  Branch: $BRANCH  SHA: $SHA"
+
+            cd "$REPO_DIR"
+
+            echo "==> Fetching ${BRANCH}"
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+            git log -1 --oneline
+
+            if [ ! -f .env ]; then
+              echo "!! .env missing. Aborting before docker compose." >&2
+              exit 1
+            fi
+
+            COMPOSE="docker compose -f docker-compose.prod.yml"
+
+            echo "==> Stopping previous stack (keeping volumes)"
+            $COMPOSE down --remove-orphans || true
+
+            echo "==> Pruning dangling images"
+            docker image prune -f >/dev/null
+
+            echo "==> Building images $NO_CACHE"
+            $COMPOSE build $NO_CACHE --pull
+
+            echo "==> Starting stack"
+            $COMPOSE up -d
+
+            echo "==> Waiting for postgres + api to come up"
+            for i in $(seq 1 60); do
+              if $COMPOSE exec -T postgres pg_isready -U "${POSTGRES_USER:-deo}" >/dev/null 2>&1; then
+                echo "postgres ready (after ${i}s)"
+                break
+              fi
+              sleep 1
+            done
+
+            echo "==> Service status"
+            $COMPOSE ps
+
+            echo "==> API health probe (internal)"
+            for i in $(seq 1 30); do
+              if $COMPOSE exec -T api wget -qO- http://localhost:3001/health >/dev/null 2>&1 \
+                 || $COMPOSE exec -T api node -e "require('http').get('http://localhost:3001/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))" 2>/dev/null; then
+                echo "api /health OK after ${i}s"
+                break
+              fi
+              sleep 2
+              if [ "$i" = "30" ]; then
+                echo "!! api /health failed; dumping last 80 lines"
+                $COMPOSE logs --tail=80 api
+                exit 2
+              fi
+            done
+
+            echo "==> Edge probes via nginx"
+            $COMPOSE exec -T nginx wget -qO- -S http://web/ 2>&1 | head -5 || true
+            $COMPOSE exec -T nginx wget -qO- -S http://api:3001/health 2>&1 | head -5 || true
+
+            echo "==> Tail of api logs"
+            $COMPOSE logs --tail=30 api || true
+
+            echo "==> Deployment OK"
+
+      - name: Public smoke tests
+        if: always()
+        run: |
+          echo "== api.enterpriseos.bond/health =="
+          curl -fsSL --max-time 15 https://api.enterpriseos.bond/health || echo "FAILED"
+          echo
+          echo "== dash.enterpriseos.bond (HEAD) =="
+          curl -fsSI --max-time 15 https://dash.enterpriseos.bond/ | head -5 || echo "FAILED"
