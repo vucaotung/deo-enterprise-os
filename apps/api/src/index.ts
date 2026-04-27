@@ -10,6 +10,7 @@ import authRoutes from './routes/auth';
 import dashboardRoutes from './routes/dashboard';
 import usersRoutes from './routes/users';
 import invitesRoutes from './routes/invites';
+import agentIngestRoutes from './routes/agent-ingest';
 import tasksRoutes from './routes/tasks';
 import projectsRoutes from './routes/projects';
 import expensesRoutes from './routes/expenses';
@@ -70,6 +71,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/invites', invitesRoutes);
+app.use('/api/agent-ingest', agentIngestRoutes);
 app.use('/api/dashboard', authMiddleware, dashboardRoutes);
 app.use('/api/tasks', authMiddleware, tasksRoutes);
 app.use('/api/projects', authMiddleware, projectsRoutes);

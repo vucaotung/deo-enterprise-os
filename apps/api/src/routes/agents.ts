@@ -100,6 +100,26 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// GET /api/agents/:id/events — recent events for live agent feed
+router.get('/:id/events', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+    const limit = Math.min(parseInt((req.query.limit as string) || '50', 10), 200);
+    const result = await dbQuery(
+      `SELECT id, type, task_id, payload, occurred_at
+         FROM deo.agent_events
+        WHERE agent_id = $1
+        ORDER BY occurred_at DESC
+        LIMIT $2`,
+      [req.params.id, limit]
+    );
+    res.json({ events: result.rows });
+  } catch (error) {
+    console.error('Agent events error', error);
+    res.status(500).json({ error: 'Failed to fetch agent events' });
+  }
+});
+
 router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) {

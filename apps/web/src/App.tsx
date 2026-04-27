@@ -18,6 +18,7 @@ const Finance = lazy(() => import('@/pages/Finance').then(m => ({ default: m.Fin
 const Agents = lazy(() => import('@/pages/Agents').then(m => ({ default: m.Agents })));
 const Clarifications = lazy(() => import('@/pages/Clarifications').then(m => ({ default: m.Clarifications })));
 const Notebooks = lazy(() => import('@/pages/Notebooks').then(m => ({ default: m.Notebooks })));
+const Help = lazy(() => import('@/pages/Help').then(m => ({ default: m.Help })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,6 +100,7 @@ const AppRoutes = () => {
         <Route path="/clarifications" element={<Suspense fallback={<RouteFallback />}><Clarifications /></Suspense>} />
         <Route path="/notebooks" element={<Suspense fallback={<RouteFallback />}><Notebooks /></Suspense>} />
         <Route path="/admin/users" element={<Suspense fallback={<RouteFallback />}><AdminUsers /></Suspense>} />
+        <Route path="/help" element={<Suspense fallback={<RouteFallback />}><Help /></Suspense>} />
       </Route>
     </Routes>
   );
