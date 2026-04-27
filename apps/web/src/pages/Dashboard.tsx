@@ -3,7 +3,8 @@ import { useOutletContext } from 'react-router-dom';
 import { DashboardSummary, DashboardCharts } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { Badge } from '@/components/Badge';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
+import api from '@/api/client';
 import {
   PieChart,
   Pie,
@@ -66,6 +67,10 @@ const KPICard = ({
 
 export const Dashboard = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
+  const [usingFallback, setUsingFallback] = useState(false);
+  const [serverSummary, setServerSummary] = useState<DashboardSummary | null>(null);
+  const [serverCharts, setServerCharts] = useState<DashboardCharts | null>(null);
+
   const [mockSummary] = useState<DashboardSummary>({
     taskCount: 24,
     expenseCount: 12,
@@ -124,15 +129,71 @@ export const Dashboard = () => {
     setPageTitle('Bảng điều khiển');
   }, [setPageTitle]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [summaryRes, chartsRes] = await Promise.all([
+          api.get('/dashboard/summary'),
+          api.get('/dashboard/charts'),
+        ]);
+        if (cancelled) return;
+
+        const s = summaryRes.data;
+        setServerSummary({
+          taskCount: s.tasks?.total ?? 0,
+          expenseCount: s.expenses?.count ?? 0,
+          clientCount: s.leads?.total ?? 0,
+          taskCountByStatus: {
+            todo: s.tasks?.open ?? 0,
+            in_progress: s.tasks?.in_progress ?? 0,
+            completed: s.tasks?.completed ?? 0,
+            cancelled: 0,
+          },
+        });
+
+        const c = chartsRes.data;
+        setServerCharts({
+          expense_by_category: (c.expenses_by_month || []).map((row: any) => ({
+            category: new Date(row.month).toLocaleDateString('vi-VN', { month: 'short', year: 'numeric' }),
+            amount: Number(row.total) || 0,
+          })),
+          task_status: (c.tasks_by_status || []).map((row: any) => ({
+            status: row.status,
+            count: Number(row.count) || 0,
+          })),
+          recent_activities: [],
+        });
+        setUsingFallback(false);
+      } catch (err) {
+        console.warn('Dashboard API failed, using mock data', err);
+        setUsingFallback(true);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const summary = serverSummary || mockSummary;
+  const charts = serverCharts && serverCharts.expense_by_category.length > 0 ? serverCharts : mockCharts;
+
   const COLORS = ['#0ea5e9', '#22c55e', '#eab308', '#f97316'];
-  const totalExpenseAmount = mockCharts.expense_by_category.reduce((sum, item) => sum + item.amount, 0);
+  const totalExpenseAmount = charts.expense_by_category.reduce((sum, item) => sum + item.amount, 0);
 
   return (
     <div className="space-y-6">
+      {usingFallback && (
+        <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
+          <AlertCircle size={16} />
+          <span>Đang hiển thị dữ liệu mẫu — không kết nối được API.</span>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <KPICard icon={<span className="text-2xl">📋</span>} title="Công việc mở" value={mockSummary.taskCount} trend={12} />
+        <KPICard icon={<span className="text-2xl">📋</span>} title="Công việc mở" value={summary.taskCount} trend={12} />
         <KPICard icon={<span className="text-2xl">💸</span>} title="Tổng chi phí" value={formatCurrency(totalExpenseAmount)} trend={-8} />
-        <KPICard icon={<span className="text-2xl">👥</span>} title="Khách hàng" value={mockSummary.clientCount} trend={25} />
+        <KPICard icon={<span className="text-2xl">👥</span>} title="Khách hàng" value={summary.clientCount} trend={25} />
         <KPICard icon={<span className="text-2xl">🤖</span>} title="Agent online" value={5} />
         <KPICard icon={<span className="text-2xl">❓</span>} title="Chờ làm rõ" value={3} />
       </div>
@@ -146,7 +207,7 @@ export const Dashboard = () => {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={mockCharts.expense_by_category}
+                  data={charts.expense_by_category}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -155,7 +216,7 @@ export const Dashboard = () => {
                   fill="#8884d8"
                   dataKey="amount"
                 >
-                  {mockCharts.expense_by_category.map((_, index) => (
+                  {charts.expense_by_category.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -171,7 +232,7 @@ export const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={mockCharts.task_status}>
+              <BarChart data={charts.task_status}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="status" />
                 <YAxis />
@@ -191,7 +252,7 @@ export const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {mockCharts.recent_activities.map((activity) => (
+                {charts.recent_activities.map((activity) => (
                   <div
                     key={activity.id}
                     className="flex items-start gap-3 pb-3 border-b border-slate-200 last:border-b-0"
@@ -227,15 +288,15 @@ export const Dashboard = () => {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-700">Task todo</span>
-                  <Badge variant="warning">{mockSummary.taskCountByStatus.todo}</Badge>
+                  <Badge variant="warning">{summary.taskCountByStatus.todo}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-700">Task in progress</span>
-                  <Badge variant="info">{mockSummary.taskCountByStatus.in_progress}</Badge>
+                  <Badge variant="info">{summary.taskCountByStatus.in_progress}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-700">Task completed</span>
-                  <Badge variant="success">{mockSummary.taskCountByStatus.completed}</Badge>
+                  <Badge variant="success">{summary.taskCountByStatus.completed}</Badge>
                 </div>
               </div>
             </CardContent>
