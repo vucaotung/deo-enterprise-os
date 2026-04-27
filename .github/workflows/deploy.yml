@@ -97,6 +97,24 @@ jobs:
             echo "==> Pruning old repo backups (>1 day old)"
             find "$(dirname "$REPO_DIR")" -maxdepth 1 -name "$(basename "$REPO_DIR").bak.*" -type d -mtime +1 -print -exec rm -rf {} + || true
 
+            echo "==> Ensuring auto-generated secrets exist in .env (before any compose call)"
+            ensure_var() {
+              local key=$1
+              if ! grep -q "^${key}=" "$REPO_DIR/.env"; then
+                local val=$(openssl rand -base64 24 | tr -d '=+/' | head -c 24)
+                printf '\n%s=%s\n' "$key" "$val" >> "$REPO_DIR/.env"
+                echo "    appended ${key} (auto-generated)"
+              else
+                echo "    ${key} already set"
+              fi
+            }
+            ensure_var GRAFANA_ADMIN_PASSWORD
+            ensure_var ADMIN_INITIAL_PASSWORD
+            grep -q "^GRAFANA_ADMIN_USER=" "$REPO_DIR/.env" || echo "GRAFANA_ADMIN_USER=admin" >> "$REPO_DIR/.env"
+            grep -q "^GRAFANA_ROOT_URL=" "$REPO_DIR/.env" || echo "GRAFANA_ROOT_URL=https://grafana.enterpriseos.bond" >> "$REPO_DIR/.env"
+            grep -q "^ADMIN_EMAIL=" "$REPO_DIR/.env" || echo "ADMIN_EMAIL=admin@enterpriseos.bond" >> "$REPO_DIR/.env"
+            grep -q "^FRONTEND_URL=" "$REPO_DIR/.env" || echo "FRONTEND_URL=https://dash.enterpriseos.bond" >> "$REPO_DIR/.env"
+
             COMPOSE="docker compose -f docker-compose.prod.yml"
 
             echo "==> Stopping previous stack (keeping volumes)"
@@ -128,24 +146,6 @@ jobs:
               exit 4
             fi
             echo "    port 80 is free"
-
-            echo "==> Ensuring auto-generated secrets exist in .env"
-            ensure_var() {
-              local key=$1
-              if ! grep -q "^${key}=" "$REPO_DIR/.env"; then
-                local val=$(openssl rand -base64 24 | tr -d '=+/' | head -c 24)
-                printf '\n%s=%s\n' "$key" "$val" >> "$REPO_DIR/.env"
-                echo "    appended ${key} (auto-generated)"
-              else
-                echo "    ${key} already set"
-              fi
-            }
-            ensure_var GRAFANA_ADMIN_PASSWORD
-            ensure_var ADMIN_INITIAL_PASSWORD
-            grep -q "^GRAFANA_ADMIN_USER=" "$REPO_DIR/.env" || echo "GRAFANA_ADMIN_USER=admin" >> "$REPO_DIR/.env"
-            grep -q "^GRAFANA_ROOT_URL=" "$REPO_DIR/.env" || echo "GRAFANA_ROOT_URL=https://grafana.enterpriseos.bond" >> "$REPO_DIR/.env"
-            grep -q "^ADMIN_EMAIL=" "$REPO_DIR/.env" || echo "ADMIN_EMAIL=admin@enterpriseos.bond" >> "$REPO_DIR/.env"
-            grep -q "^FRONTEND_URL=" "$REPO_DIR/.env" || echo "FRONTEND_URL=https://dash.enterpriseos.bond" >> "$REPO_DIR/.env"
 
             echo "==> Pruning dangling images"
             docker image prune -f >/dev/null

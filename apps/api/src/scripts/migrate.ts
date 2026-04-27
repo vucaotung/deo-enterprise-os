@@ -16,6 +16,38 @@ async function ensureMigrationsTable(client: Client) {
   `);
 }
 
+// If a previous deploy seeded the schema via /docker-entrypoint-initdb.d
+// (now removed) we won't have rows in _migrations even though the tables
+// exist. Detect this and mark the original 001-007 files as applied so
+// the runner doesn't try to re-create them.
+async function bootstrapLegacy(client: Client) {
+  const tracked = await client.query(`SELECT 1 FROM deo._migrations LIMIT 1`);
+  if ((tracked.rowCount ?? 0) > 0) return; // fresh schema OR already tracked
+
+  const hasUsers = await client.query(
+    `SELECT 1 FROM information_schema.tables
+       WHERE table_schema = 'deo' AND table_name = 'users'`
+  );
+  if (hasUsers.rowCount === 0) return; // truly fresh DB, runner will apply all
+
+  const legacyFiles = [
+    '001_init.sql',
+    '002_deo_schema.sql',
+    '003_deo_v4_update.sql',
+    '004_many_to_many.sql',
+    '005_orchestration_upgrade.sql',
+    '006_backoffice_foundation.sql',
+    '007_brain_gdrive.sql',
+  ];
+  console.log('Detected pre-existing schema; marking legacy migrations as applied.');
+  for (const name of legacyFiles) {
+    await client.query(
+      `INSERT INTO deo._migrations (name) VALUES ($1) ON CONFLICT DO NOTHING`,
+      [name]
+    );
+  }
+}
+
 async function applyPending(client: Client) {
   const applied = await client.query<{ name: string }>(
     'SELECT name FROM deo._migrations'
@@ -108,6 +140,7 @@ async function main() {
 
   try {
     await ensureMigrationsTable(client);
+    await bootstrapLegacy(client);
     await applyPending(client);
     await seedAdminUser(client);
   } finally {
