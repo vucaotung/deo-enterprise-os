@@ -22,9 +22,12 @@ import leadsRoutes from './routes/leads';
 import agentJobsRoutes from './routes/agent-jobs';
 import telegramRoutes from './routes/telegram';
 import backofficeRoutes from './routes/backoffice';
+import mcpRoutes from './routes/mcp';
+import hooksRoutes from './routes/hooks';
 
 import { auditMiddleware } from './middleware/audit';
 import { authMiddleware } from './middleware/auth';
+import { correlationIdMiddleware } from './middleware/correlation-id';
 
 const app = express();
 const httpServer = createServer(app);
@@ -47,6 +50,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use(correlationIdMiddleware);
 app.use(auditMiddleware);
 
 app.get('/api/health', (req: Request, res: Response) => {
@@ -81,6 +85,10 @@ app.use('/api/leads', authMiddleware, leadsRoutes);
 app.use('/api/jobs', agentJobsRoutes);
 app.use('/api/telegram', telegramRoutes);
 app.use('/api/backoffice', backofficeRoutes);
+
+// GoClaw integration
+app.use('/mcp', mcpRoutes);
+app.use('/internal/hooks', hooksRoutes);
 
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
