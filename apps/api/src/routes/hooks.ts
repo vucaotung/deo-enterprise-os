@@ -15,16 +15,13 @@
  */
 
 import { Router, Response } from 'express';
-import { serviceAuthMiddleware, ServiceRequest } from '../middleware/service-auth';
 import { CorrelatedRequest } from '../middleware/correlation-id';
 import { query as dbQuery } from '../db';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 
-router.use(serviceAuthMiddleware);
-
-type HookRequest = ServiceRequest & CorrelatedRequest;
+type HookRequest = Request & CorrelatedRequest;
 
 // ──────────────────────────────────────────────
 // Shared: log hook event to audit_events
