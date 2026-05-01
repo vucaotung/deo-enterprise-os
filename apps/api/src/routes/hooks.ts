@@ -14,7 +14,7 @@
  * Auth: X-Service-Token header
  */
 
-import { Router, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { CorrelatedRequest } from '../middleware/correlation-id';
 import { query as dbQuery } from '../db';
 import { v4 as uuidv4 } from 'uuid';
