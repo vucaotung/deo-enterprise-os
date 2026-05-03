@@ -32,7 +32,8 @@ async function logHookEvent(
   agentId: string,
   userId: string | undefined,
   data: Record<string, any>,
-  correlationId?: string
+  correlationId?: string,
+  rawBody?: any
 ) {
   try {
     await dbQuery(
@@ -43,12 +44,26 @@ async function logHookEvent(
         uuidv4(),
         eventType,
         agentId || 'unknown',
-        JSON.stringify({ ...data, user_id: userId, _correlation_id: correlationId }),
+        JSON.stringify({
+          ...data,
+          user_id: userId,
+          _correlation_id: correlationId,
+          _raw: rawBody,
+        }),
       ]
     );
   } catch (error) {
     console.error(`[hooks] Failed to log ${eventType}:`, error);
   }
+}
+
+// Helper: GoClaw có thể gửi nhiều tên field khác nhau cho cùng concept
+function pickField(body: any, ...names: string[]): any {
+  if (!body) return undefined;
+  for (const n of names) {
+    if (body[n] !== undefined) return body[n];
+  }
+  return undefined;
 }
 
 // ──────────────────────────────────────────────
@@ -59,17 +74,22 @@ async function logHookEvent(
 router.post('/session-start', async (req: HookRequest, res: Response) => {
   res.sendStatus(200);
 
-  const { agent_id, user_id, session_id, channel, tenant_id } = req.body;
+  const body = req.body || {};
+  const agent_id = pickField(body, 'agent_id', 'agentId', 'agent');
+  const user_id = pickField(body, 'user_id', 'userId', 'user');
+  const session_id = pickField(body, 'session_id', 'sessionId', 'session');
+  const channel = pickField(body, 'channel', 'source');
+  const tenant_id = pickField(body, 'tenant_id', 'tenantId', 'tenant');
 
   await logHookEvent(
     'goclaw.session.start',
     agent_id,
     user_id,
     { session_id, channel, tenant_id },
-    req.correlationId
+    req.correlationId,
+    body
   );
 
-  // Cập nhật agent heartbeat nếu agent đã đăng ký
   if (agent_id) {
     await dbQuery(
       `UPDATE deo.agents SET status = 'online', last_heartbeat = NOW(), updated_at = NOW()
@@ -87,17 +107,23 @@ router.post('/session-start', async (req: HookRequest, res: Response) => {
 router.post('/prompt-submit', async (req: HookRequest, res: Response) => {
   res.sendStatus(200);
 
-  const { agent_id, user_id, session_id, channel, message_preview, intent } = req.body;
+  const body = req.body || {};
+  const agent_id = pickField(body, 'agent_id', 'agentId', 'agent');
+  const user_id = pickField(body, 'user_id', 'userId', 'user');
+  const session_id = pickField(body, 'session_id', 'sessionId', 'session');
+  const channel = pickField(body, 'channel', 'source');
+  const message_preview = pickField(body, 'message_preview', 'message', 'prompt', 'content');
+  const intent = pickField(body, 'intent');
 
   await logHookEvent(
     'goclaw.prompt.submit',
     agent_id,
     user_id,
-    { session_id, channel, message_preview: message_preview?.slice(0, 200), intent },
-    req.correlationId
+    { session_id, channel, message_preview: message_preview?.slice?.(0, 200), intent },
+    req.correlationId,
+    body
   );
 
-  // Ghi vào conversation nếu có channel
   if (user_id && channel) {
     const existingConv = await dbQuery(
       `SELECT id FROM deo.conversations WHERE channel_id = $1 AND channel = $2 AND status = 'active' LIMIT 1`,
@@ -123,14 +149,19 @@ router.post('/prompt-submit', async (req: HookRequest, res: Response) => {
 router.post('/pre-tool-use', async (req: HookRequest, res: Response) => {
   res.sendStatus(200);
 
-  const { agent_id, user_id, tool_name, tool_input_preview } = req.body;
+  const body = req.body || {};
+  const agent_id = pickField(body, 'agent_id', 'agentId', 'agent');
+  const user_id = pickField(body, 'user_id', 'userId', 'user');
+  const tool_name = pickField(body, 'tool_name', 'toolName', 'tool', 'name');
+  const tool_input_preview = pickField(body, 'tool_input_preview', 'toolInput', 'input', 'arguments');
 
   await logHookEvent(
     'goclaw.tool.pre_use',
     agent_id,
     user_id,
     { tool_name, tool_input_preview },
-    req.correlationId
+    req.correlationId,
+    body
   );
 });
 
@@ -142,14 +173,21 @@ router.post('/pre-tool-use', async (req: HookRequest, res: Response) => {
 router.post('/post-tool-use', async (req: HookRequest, res: Response) => {
   res.sendStatus(200);
 
-  const { agent_id, user_id, tool_name, success, error_message, duration_ms } = req.body;
+  const body = req.body || {};
+  const agent_id = pickField(body, 'agent_id', 'agentId', 'agent');
+  const user_id = pickField(body, 'user_id', 'userId', 'user');
+  const tool_name = pickField(body, 'tool_name', 'toolName', 'tool', 'name');
+  const success = pickField(body, 'success', 'ok');
+  const error_message = pickField(body, 'error_message', 'error', 'errorMessage');
+  const duration_ms = pickField(body, 'duration_ms', 'durationMs', 'duration');
 
   await logHookEvent(
     'goclaw.tool.post_use',
     agent_id,
     user_id,
     { tool_name, success, error_message, duration_ms },
-    req.correlationId
+    req.correlationId,
+    body
   );
 });
 
@@ -161,14 +199,21 @@ router.post('/post-tool-use', async (req: HookRequest, res: Response) => {
 router.post('/run-stop', async (req: HookRequest, res: Response) => {
   res.sendStatus(200);
 
-  const { agent_id, user_id, session_id, reason, tokens_used, duration_ms } = req.body;
+  const body = req.body || {};
+  const agent_id = pickField(body, 'agent_id', 'agentId', 'agent');
+  const user_id = pickField(body, 'user_id', 'userId', 'user');
+  const session_id = pickField(body, 'session_id', 'sessionId', 'session');
+  const reason = pickField(body, 'reason', 'stop_reason');
+  const tokens_used = pickField(body, 'tokens_used', 'tokensUsed', 'tokens');
+  const duration_ms = pickField(body, 'duration_ms', 'durationMs', 'duration');
 
   await logHookEvent(
     'goclaw.run.stop',
     agent_id,
     user_id,
     { session_id, reason, tokens_used, duration_ms },
-    req.correlationId
+    req.correlationId,
+    body
   );
 });
 
@@ -180,14 +225,19 @@ router.post('/run-stop', async (req: HookRequest, res: Response) => {
 router.post('/subagent-start', async (req: HookRequest, res: Response) => {
   res.sendStatus(200);
 
-  const { parent_agent_id, subagent_id, user_id, task_description } = req.body;
+  const body = req.body || {};
+  const parent_agent_id = pickField(body, 'parent_agent_id', 'parentAgentId', 'parent', 'agent_id');
+  const subagent_id = pickField(body, 'subagent_id', 'subagentId', 'subagent', 'child_agent');
+  const user_id = pickField(body, 'user_id', 'userId', 'user');
+  const task_description = pickField(body, 'task_description', 'taskDescription', 'description', 'task');
 
   await logHookEvent(
     'goclaw.subagent.start',
     parent_agent_id,
     user_id,
-    { subagent_id, task_description: task_description?.slice(0, 500) },
-    req.correlationId
+    { subagent_id, task_description: task_description?.slice?.(0, 500) },
+    req.correlationId,
+    body
   );
 });
 
@@ -199,14 +249,21 @@ router.post('/subagent-start', async (req: HookRequest, res: Response) => {
 router.post('/subagent-stop', async (req: HookRequest, res: Response) => {
   res.sendStatus(200);
 
-  const { parent_agent_id, subagent_id, user_id, success, result_preview, duration_ms } = req.body;
+  const body = req.body || {};
+  const parent_agent_id = pickField(body, 'parent_agent_id', 'parentAgentId', 'parent', 'agent_id');
+  const subagent_id = pickField(body, 'subagent_id', 'subagentId', 'subagent', 'child_agent');
+  const user_id = pickField(body, 'user_id', 'userId', 'user');
+  const success = pickField(body, 'success', 'ok');
+  const result_preview = pickField(body, 'result_preview', 'result', 'output');
+  const duration_ms = pickField(body, 'duration_ms', 'durationMs', 'duration');
 
   await logHookEvent(
     'goclaw.subagent.stop',
     parent_agent_id,
     user_id,
-    { subagent_id, success, result_preview: result_preview?.slice(0, 500), duration_ms },
-    req.correlationId
+    { subagent_id, success, result_preview: result_preview?.slice?.(0, 500), duration_ms },
+    req.correlationId,
+    body
   );
 });
 
