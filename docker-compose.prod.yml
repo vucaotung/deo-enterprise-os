@@ -49,6 +49,10 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
       CORS_ORIGIN: ${CORS_ORIGIN:-https://dash.enterpriseos.bond}
+      GOCLAW_SERVICE_TOKEN: ${GOCLAW_SERVICE_TOKEN:-}
+      MCP_API_KEY: ${MCP_API_KEY:-}
+      GOCLAW_BASE_URL: ${GOCLAW_BASE_URL:-}
+      GOCLAW_GATEWAY_TOKEN: ${GOCLAW_GATEWAY_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
