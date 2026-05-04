@@ -1,32 +1,40 @@
 # KNOWN ISSUES
 
-## 1. Source-of-truth chưa chốt
+## 1. Source-of-truth — duplicate tree (RESOLVED 2026-05-04)
 ### Mô tả
-Hiện code đang bị lệch giữa:
-- local desktop project
-- VPS production
-- runtime patch của OpenClaw agents local
+Sau khi convert submodule → regular dir (commit `2248ef4`), repo có 2 cây code trùng nhau: root và `/deo-enterprise-os/` nested. Nested copy mới hơn (có v3.1.0 changelog + HOOKS_PLAN.md).
 
-### Ảnh hưởng
-- khó versioning
-- khó rollback
-- khó audit thay đổi
+### Resolution
+- Promote `CHANGELOG.md`, `VERSION.md`, `goclaw/config/HOOKS_PLAN.md` từ nested lên root.
+- Xóa toàn bộ `deo-enterprise-os/` nested directory.
+- `.env.local` đã leak GoClaw token vào git — rotate token, thêm `.env.local` vào `.gitignore`.
 
 ### Ưu tiên
-P0
+~~P0~~ ✅ Done
 
 ---
 
-## 2. `agent-jobs` route chưa đồng nhất contract hiện tại
+## 1b. Source-of-truth — local vs VPS production drift
 ### Mô tả
-Luồng orchestration/job hiện còn dùng logic/schema đời cũ ở một số phần, trong khi production task flow đã được vá theo hướng khác.
+Code đang bị lệch giữa local repo và VPS production (runtime hotfix agent-admin nằm ngoài repo).
 
-### Triệu chứng
-- tạo job qua `/api/agent-jobs` có thể fail
-- phải bypass tạm thời sang `/api/tasks`
+### Resolution path
+ADR-13 (rebuild) — code cũ đóng băng tại `legacy/v1.2.0-dev`, production v0.2.3 chạy song song không thêm feature, cutover khi monorepo mới đạt Phase 0 Exit Criteria.
 
 ### Ưu tiên
-P0
+P1 (giảm từ P0 sau ADR-13)
+
+---
+
+## 2. `agent-jobs` route — DEPRECATED bởi rebuild (ADR-13)
+### Mô tả
+Luồng orchestration/job hiện còn dùng logic/schema đời cũ. Production task flow đã được vá theo hướng khác.
+
+### Resolution
+ADR-13: không port `agent-jobs` sang monorepo mới. Bridge `/api/tasks` được formalize trong API mới theo Phase 0 v2 contract.
+
+### Ưu tiên
+~~P0~~ ✅ Decided (deprecated)
 
 ---
 
@@ -60,17 +68,12 @@ P1
 
 ---
 
-## 5. Chưa có GitHub repo chính thức
+## 5. GitHub repo (RESOLVED)
 ### Mô tả
-Hiện chưa có remote GitHub làm chuẩn version history.
-
-### Ảnh hưởng
-- không có commit log sạch
-- không có release tags chuẩn
-- khó theo dõi thay đổi theo version
+Đã có remote `vucaotung/deo-enterprise-os`. Branch chính + version tags chuẩn từ `v3.1.0`.
 
 ### Ưu tiên
-P0
+~~P0~~ ✅ Done
 
 ---
 

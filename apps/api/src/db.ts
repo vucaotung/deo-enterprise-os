@@ -1,37 +1,22 @@
-import pool from './config/database';
+import { Pool } from 'pg';
+import type { Env } from './config/env.js';
 
-/**
- * Legacy compatibility layer.
- *
- * Canonical target for v0.3.0 is: ./config/database
- * This file stays temporarily so older routes/services importing `../db`
- * do not break while the import graph is cleaned up.
- */
+export const createDbPool = (env: Pick<Env, 'DATABASE_URL' | 'DB_SCHEMA'>): Pool => {
+  const pool = new Pool({
+    connectionString: env.DATABASE_URL,
+    application_name: 'deo-api',
+  });
+  pool.on('connect', (client) => {
+    void client.query(`SET search_path TO ${env.DB_SCHEMA}, public`);
+  });
+  return pool;
+};
 
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-});
-
-export async function query(text: string, params?: any[]) {
-  const start = Date.now();
+export const pingDb = async (pool: Pool): Promise<boolean> => {
   try {
-    const result = await pool.query(text, params);
-    const duration = Date.now() - start;
-    console.log('Executed query', { text, duration, rows: result.rowCount });
-    return result;
-  } catch (error) {
-    console.error('Database error', { text, params, error });
-    throw error;
+    const res = await pool.query('SELECT 1 AS ok');
+    return res.rows[0]?.ok === 1;
+  } catch {
+    return false;
   }
-}
-
-export async function getClient() {
-  return pool.connect();
-}
-
-export async function close() {
-  await pool.end();
-}
-
-export { pool };
-export default pool;
+};

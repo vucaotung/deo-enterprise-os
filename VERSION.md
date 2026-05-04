@@ -1,12 +1,13 @@
 # Version
 
-## Architecture Version: v3.0.0 — GoClaw Edition
-**Date:** April 21, 2026
-**Status:** Architecture documented. Phase 0 implementation pending.
-- Agent layer: GoClaw (replaces OpenClaw)
-- 11 agents defined + context files
-- 12 ADRs chốt hoàn toàn
-- Docs: `docs/ENTERPRISE_HUMAN_AI_HYBRID_OS_PLAN_v3_GOCLAW.md`
+## Architecture Version: v3.1.0 — Agents Live
+**Date:** April 22, 2026
+**Status:** 13 agents deployed on GoClaw. Context files uploaded. n8n cron active. Hooks plan ready.
+- 13 agents fully configured + context files (8 files/agent)
+- Channel strategy finalized: Telegram (deo, it-dev, researcher) / Zalo (business agents)
+- n8n cron: dream-agent daily-reflection running
+- Agent Hooks plan documented (5 hooks)
+- Previous: `docs/ENTERPRISE_HUMAN_AI_HYBRID_OS_PLAN_v3_GOCLAW.md`
 
 ---
 
@@ -53,4 +54,5 @@
 | 1.0.0 | Core API + Dashboard + Agents | ✅ Done |
 | 1.2.0 | 2nd Brain: GDrive + Obsidian + RAG | 🚧 In Dev |
 | v3.0.0 | Architecture: GoClaw + Agents + ADRs | ✅ Documented |
-| v3.1.0 | Phase 0 Implementation | 🔜 Next |
+| v3.1.0 | Agents Live + Hooks Plan | ✅ Done |
+| v3.2.0 | Hooks Implementation + EOS API Bridge | 🔜 Next |

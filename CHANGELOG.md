@@ -1,5 +1,168 @@
 # CHANGELOG
 
+## [Unreleased] — Sprint C: GoClaw hooks (5/5 wired)
+
+Implement HOOKS_PLAN.md Phase 1+2+3+4+5 trong `apps/api`:
+
+### Added — `@deo/shared`
+- `types/hooks.ts`: `HookType`, `BeforeChatPayload`, `AfterChatPayload`, `OnErrorPayload`, `BeforeChatResponse`, `HookAck`
+
+### Added — `@deo/api`
+- `middleware/hook-auth.ts` — verify `X-Hook-Secret` constant-time
+- `services/conversation.service.ts` — fire-and-forget insert
+- `services/rate-limit.service.ts` — Redis hour-bucket counter, role-based limits (staff 20, mgmt 100, system unlimited, unknown 50)
+- `services/off-hours.service.ts` — Asia/Ho_Chi_Minh time check, restricted: `hr/finance/legal-agent`
+- `services/user-context.service.ts` — stub lookup (TODO Sprint D-3 wire DB)
+- `services/error-alert.service.ts` — log + Redis error counter; critical agents: `deo/ops-admin/finance-agent/hr-agent`; threshold 3/5min; Telegram push TODO Sprint C-2
+- `routes/hooks.ts` — 3 endpoints: `POST /hooks/before-chat`, `POST /hooks/after-chat`, `POST /hooks/on-error`
+- `migrations/001_agent_conversations.sql` — `deo.agent_conversations` table với indexes
+- Pino redact thêm `x-hook-secret`
+- Env: `HOOK_SECRET` (min 16 chars)
+
+### Tests
+- `hooks.test.ts`: auth (missing/wrong secret), before-chat (off-hours block, rate-limit block, validation), after-chat (fire-and-forget verify), on-error (record + ack)
+
+### Pending (follow-up sprints)
+- Hook 1 wire DB lookup → Sprint D-3 (sau khi có `user_identities`)
+- Hook 4 Telegram push → Sprint C-2
+
+---
+
+## [Unreleased] — Sprint D-2: API foundation + shared package
+
+### Added — `@deo/shared`
+- Response envelope ADR-05 (`ok`, `err`, `ApiResponse<T>`, `ErrorCode`)
+- Shared enums: `TaskStatus`, `TaskPriority`, `ProjectStatus`, `ChannelType`, `ActorType`
+- Base types: `auth`, `org`, `projects`, `tasks`, `chat`, `audit`
+- Zod schemas: `LoginInput`, `CreateProjectInput`, `CreateTaskInput`, `ChangeTaskStatusInput`
+- Vitest smoke test cho envelope
+
+### Added — `@deo/api` (Express skeleton)
+- `buildApp` factory với DI (logger, pool, redis)
+- `correlationIdMiddleware` — `X-Correlation-ID` header (ADR-08)
+- `errorHandler` — chuyển `HttpError` + `ZodError` thành envelope ADR-05
+- `GET /health`, `GET /ready` — process + DB + Redis check
+- Pino logger với redact `authorization`, `x-service-token`, `password`
+- Postgres pool (search_path → `deo`), ioredis client
+- Vitest + Supertest smoke tests cho health endpoints
+
+### Changed — Legacy freeze
+- Rename `apps/api` → `apps/api-legacy`, `apps/web` → `apps/web-legacy`
+- `FROZEN.md` ở mỗi legacy app: rules đông cứng + reference-only policy
+- `pnpm-workspace.yaml` exclude `apps/*-legacy` khỏi workspace install
+
+---
+
+## [Unreleased] — Sprint D-1: monorepo bootstrap
+
+- `pnpm-workspace.yaml`, root `package.json`, `tsconfig.base.json`, `.editorconfig`
+- Skeleton dirs: `packages/{shared,sdk}`, `integrations/{openclaw,n8n,google-drive}`, `apps/worker`, `docs/{architecture,runbooks,decisions}`
+- Tag `v1.2.0-dev-frozen` ở `b67d6b2`
+
+---
+
+## [Unreleased] — Sprint A: Foundation Cleanup
+
+### Housekeeping
+- Xóa duplicate tree `/deo-enterprise-os/` nested (di sản submodule conversion).
+- Promote `CHANGELOG.md`, `VERSION.md`, `goclaw/config/HOOKS_PLAN.md` từ nested → root.
+- Thêm `.env.local`, `.env.*.local` vào `.gitignore` (chặn leak token).
+
+### Decisions
+- **ADR-13**: Rebuild theo Phase 0 v2 monorepo. Code cũ đóng băng, không port `agent-jobs`.
+
+### Known Issues cleanup
+- Resolved #1 (duplicate tree), #5 (GitHub repo).
+- Decided #2 (`agent-jobs` deprecated by ADR-13).
+- Demoted #1b (local↔VPS drift) P0 → P1.
+
+### Security
+- ⚠️ GoClaw gateway token đã leak qua commit `2248ef4` (`deo-enterprise-os/.env.local`). **Cần rotate.**
+
+---
+
+## [v3.1.0] — 2026-04-22
+
+### 🤖 Agents Live — 13 Agents Deployed on GoClaw
+
+#### Added
+
+**13 agents fully configured với 8 context files mỗi agent:**
+- `SOUL.md` — personality và behavioral guidelines
+- `IDENTITY.md` — tên, role, trigger phrases
+- `AGENTS.md` — delegation rules, quy trình nghiệp vụ
+- `CAPABILITIES.md` — domain expertise (file mới, không có trong v3.0)
+- `TOOLS.md` — MCP tools available per agent
+- `USER_PREDEFINED.md` — shared user context per agent type (file mới)
+- `BOOTSTRAP.md` — khởi động instructions
+- `MEMORY.md` — initial memory state
+
+**Agents deployed (GoClaw dashboard + context files uploaded):**
+| Agent | Model | Channel |
+|---|---|---|
+| `deo` | gpt-5.4 → claude-sonnet-4-6* | Telegram |
+| `office-agent` | gpt-5.4 → claude-sonnet-4-6* | Zalo |
+| `hr-agent` | gemma-4-31b → claude-sonnet-4-6* | Zalo |
+| `finance-agent` | minimax-m2.5 → claude-sonnet-4-6* | Zalo |
+| `crm-agent` | gpt-4o → claude-sonnet-4-6* | Zalo |
+| `it-dev-agent` | gpt-4o → claude-sonnet-4-6* | Telegram |
+| `office-admin-agent` | gpt-4o → claude-sonnet-4-6* | Zalo |
+| `marketing-agent` | gpt-5.4 → claude-sonnet-4-6* | Zalo |
+| `legal-agent` | gpt-5.4 → claude-sonnet-4-6* | Zalo |
+| `project-manager-agent` | gpt-5.4 → claude-sonnet-4-6* | Zalo |
+| `researcher-agent` | minimax-m2.5 → claude-sonnet-4-6* | Telegram |
+| `dream-agent` | gpt-4o → claude-opus-4-6* | Internal |
+| `ops-admin` | minimax-m2.5 → claude-opus-4-6* | Zalo |
+
+> *Target model sau khi có Anthropic API key
+
+**New files:**
+- `goclaw/agents/AGENTS_REGISTRY.md` v2.1 — 13 agents, model table, channel strategy, setup order
+- `goclaw/agents/*/CAPABILITIES.md` — 13 files, domain expertise per agent
+- `goclaw/agents/*/USER_PREDEFINED.md` — 13 files, shared user context per agent type
+- `goclaw/config/MULTI_TENANCY.md` — updated channel strategy, port fix, n8n webhook
+- `goclaw/config/HOOKS_PLAN.md` — Agent Hooks plan (5 hooks)
+
+#### Changed
+
+- **Channel strategy finalized:**
+  - Telegram: `deo` (sếp only), `it-dev-agent`, `researcher-agent`
+  - Zalo: tất cả business agents (hr, finance, crm, office, marketing, legal, project-manager, ops-admin)
+  - Lý do: nhân viên chủ yếu tương tác qua Zalo; Telegram chỉ cho sếp + technical agents
+
+- **Agent count:** 11 → 13 (thêm `crm-agent`, `marketing-agent`, `legal-agent`, `project-manager-agent`, `ops-admin` vào full registry)
+
+- **Port correction:** 3777 → `18790` trong tất cả docs và commands (GoClaw Docker actual port)
+
+- **AGENTS_REGISTRY.md v2.1:**
+  - Thêm "Model thực tế" table (hiện tại vs target)
+  - TODO migration note khi có Anthropic key
+  - Channel mapping Telegram/Zalo rõ ràng
+
+#### Infrastructure
+
+- **GoClaw Standard Edition** running on `localhost:18790` (Docker)
+- **Gateway token** configured: `.env.local` + `C:\goclaw\.env`
+- **Context files** uploaded via `PUT /api/v1/agents/{key}/context-files` API (65 file uploads)
+- **n8n cron** workflow setup: dream-agent `daily-reflection` trigger at 21:00
+
+#### Known Issues
+
+- 3 agents returning 500 on chat test: `crm-agent`, `it-dev-agent`, `office-admin-agent` — under investigation
+- `dream-agent` persona: đang dùng gpt-4o + SOUL.md fix (gemma model không follow context files)
+- Anthropic API key chưa có — tất cả agents tạm dùng OpenAI models
+
+#### Hooks Plan (goclaw/config/HOOKS_PLAN.md)
+
+5 hooks được plan cho v3.2.0:
+1. **User Context Injection** (`before_chat`) — inject user profile từ EOS DB vào mỗi request
+2. **Conversation Logger** (`after_chat`) — log tất cả conversations vào `agent_conversations` table
+3. **Rate Limiter** (`before_chat`) — giới hạn staff 20 msg/giờ, management 100 msg/giờ
+4. **Error Alerter** (`on_error`) — Telegram alert khi critical agents (deo/finance/hr) lỗi
+5. **Off-hours Blocker** (`before_chat`) — hr/finance/legal từ chối ngoài giờ làm việc
+
+---
+
 ## [1.2.0] — Planned (May 2026)
 
 ### 🧠 2nd Brain Integration
