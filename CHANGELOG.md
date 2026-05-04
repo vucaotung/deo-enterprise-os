@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## [Unreleased] — Sprint D-2: API foundation + shared package
+
+### Added — `@deo/shared`
+- Response envelope ADR-05 (`ok`, `err`, `ApiResponse<T>`, `ErrorCode`)
+- Shared enums: `TaskStatus`, `TaskPriority`, `ProjectStatus`, `ChannelType`, `ActorType`
+- Base types: `auth`, `org`, `projects`, `tasks`, `chat`, `audit`
+- Zod schemas: `LoginInput`, `CreateProjectInput`, `CreateTaskInput`, `ChangeTaskStatusInput`
+- Vitest smoke test cho envelope
+
+### Added — `@deo/api` (Express skeleton)
+- `buildApp` factory với DI (logger, pool, redis)
+- `correlationIdMiddleware` — `X-Correlation-ID` header (ADR-08)
+- `errorHandler` — chuyển `HttpError` + `ZodError` thành envelope ADR-05
+- `GET /health`, `GET /ready` — process + DB + Redis check
+- Pino logger với redact `authorization`, `x-service-token`, `password`
+- Postgres pool (search_path → `deo`), ioredis client
+- Vitest + Supertest smoke tests cho health endpoints
+
+### Changed — Legacy freeze
+- Rename `apps/api` → `apps/api-legacy`, `apps/web` → `apps/web-legacy`
+- `FROZEN.md` ở mỗi legacy app: rules đông cứng + reference-only policy
+- `pnpm-workspace.yaml` exclude `apps/*-legacy` khỏi workspace install
+
+---
+
+## [Unreleased] — Sprint D-1: monorepo bootstrap
+
+- `pnpm-workspace.yaml`, root `package.json`, `tsconfig.base.json`, `.editorconfig`
+- Skeleton dirs: `packages/{shared,sdk}`, `integrations/{openclaw,n8n,google-drive}`, `apps/worker`, `docs/{architecture,runbooks,decisions}`
+- Tag `v1.2.0-dev-frozen` ở `b67d6b2`
+
+---
+
 ## [Unreleased] — Sprint A: Foundation Cleanup
 
 ### Housekeeping
