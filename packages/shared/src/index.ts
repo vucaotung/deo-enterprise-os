@@ -6,3 +6,4 @@ export * from './types/projects.js';
 export * from './types/tasks.js';
 export * from './types/chat.js';
 export * from './types/audit.js';
+export * from './types/hooks.js';

@@ -8,6 +8,7 @@ import type { Redis } from 'ioredis';
 import { correlationIdMiddleware } from './middleware/correlation-id.js';
 import { buildErrorHandler } from './middleware/error-handler.js';
 import { buildHealthRouter } from './routes/health.js';
+import { buildHooksRouter } from './routes/hooks.js';
 import type { Logger } from './lib/logger.js';
 
 export interface AppDeps {
@@ -15,6 +16,7 @@ export interface AppDeps {
   pool: Pool;
   redis: Redis;
   startedAt: Date;
+  hookSecret: string;
 }
 
 export const buildApp = (deps: AppDeps): express.Express => {
@@ -31,6 +33,14 @@ export const buildApp = (deps: AppDeps): express.Express => {
   );
 
   app.use(buildHealthRouter({ pool: deps.pool, redis: deps.redis, startedAt: deps.startedAt }));
+  app.use(
+    buildHooksRouter({
+      pool: deps.pool,
+      redis: deps.redis,
+      logger: deps.logger,
+      hookSecret: deps.hookSecret,
+    })
+  );
 
   app.use(buildErrorHandler(deps.logger));
 

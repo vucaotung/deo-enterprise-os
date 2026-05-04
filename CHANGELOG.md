@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## [Unreleased] — Sprint C: GoClaw hooks (5/5 wired)
+
+Implement HOOKS_PLAN.md Phase 1+2+3+4+5 trong `apps/api`:
+
+### Added — `@deo/shared`
+- `types/hooks.ts`: `HookType`, `BeforeChatPayload`, `AfterChatPayload`, `OnErrorPayload`, `BeforeChatResponse`, `HookAck`
+
+### Added — `@deo/api`
+- `middleware/hook-auth.ts` — verify `X-Hook-Secret` constant-time
+- `services/conversation.service.ts` — fire-and-forget insert
+- `services/rate-limit.service.ts` — Redis hour-bucket counter, role-based limits (staff 20, mgmt 100, system unlimited, unknown 50)
+- `services/off-hours.service.ts` — Asia/Ho_Chi_Minh time check, restricted: `hr/finance/legal-agent`
+- `services/user-context.service.ts` — stub lookup (TODO Sprint D-3 wire DB)
+- `services/error-alert.service.ts` — log + Redis error counter; critical agents: `deo/ops-admin/finance-agent/hr-agent`; threshold 3/5min; Telegram push TODO Sprint C-2
+- `routes/hooks.ts` — 3 endpoints: `POST /hooks/before-chat`, `POST /hooks/after-chat`, `POST /hooks/on-error`
+- `migrations/001_agent_conversations.sql` — `deo.agent_conversations` table với indexes
+- Pino redact thêm `x-hook-secret`
+- Env: `HOOK_SECRET` (min 16 chars)
+
+### Tests
+- `hooks.test.ts`: auth (missing/wrong secret), before-chat (off-hours block, rate-limit block, validation), after-chat (fire-and-forget verify), on-error (record + ack)
+
+### Pending (follow-up sprints)
+- Hook 1 wire DB lookup → Sprint D-3 (sau khi có `user_identities`)
+- Hook 4 Telegram push → Sprint C-2
+
+---
+
 ## [Unreleased] — Sprint D-2: API foundation + shared package
 
 ### Added — `@deo/shared`

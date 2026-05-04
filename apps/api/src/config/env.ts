@@ -16,6 +16,7 @@ const Env = z.object({
   JWT_REFRESH_TTL_SECONDS: z.coerce.number().int().positive().default(604_800),
 
   SERVICE_TOKEN: z.string().min(16),
+  HOOK_SECRET: z.string().min(16),
 });
 
 export type Env = z.infer<typeof Env>;

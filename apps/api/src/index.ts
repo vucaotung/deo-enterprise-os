@@ -13,7 +13,7 @@ const main = async (): Promise<void> => {
 
   await redis.connect();
 
-  const app = buildApp({ logger, pool, redis, startedAt });
+  const app = buildApp({ logger, pool, redis, startedAt, hookSecret: env.HOOK_SECRET });
 
   const server = app.listen(env.PORT, () => {
     logger.info({ port: env.PORT, env: env.NODE_ENV }, 'deo-api listening');

@@ -24,6 +24,7 @@ const buildTestApp = () =>
     pool: fakePool,
     redis: fakeRedis,
     startedAt: new Date(),
+    hookSecret: 'test-hook-secret-32chars-padding!',
   });
 
 describe('GET /health', () => {
@@ -66,6 +67,7 @@ describe('GET /ready', () => {
       pool: failPool,
       redis: fakeRedis,
       startedAt: new Date(),
+      hookSecret: 'test-hook-secret-32chars-padding!',
     });
     const res = await request(app).get('/ready');
     expect(res.status).toBe(503);
