@@ -1,9 +1,9 @@
 # Enterprise Human-AI Hybrid OS — Architecture Decisions
 
 > Tài liệu ghi nhận quyết định kiến trúc chính thức trước khi bắt đầu Phase 0.
-> Tất cả 12 ADR đã được chốt. Cập nhật plan và checklist tương ứng.
+> 13 ADR đã được chốt. Cập nhật plan và checklist tương ứng.
 
-**Trạng thái:** ✅ Fully resolved — 2026-04-12
+**Trạng thái:** ✅ Fully resolved — 2026-05-04
 
 ---
 
@@ -23,6 +23,7 @@
 | ADR-10 | Chat module Phase 0 scope | ✅ Resolved | Option B — endpoint thật, admin/internal only |
 | ADR-11 | Frontend state management | ✅ Resolved | TanStack Query + Zustand |
 | ADR-12 | API versioning + breaking change policy | ✅ Resolved | `/api/v1` + policy đã chốt |
+| ADR-13 | Track chính cho Phase 0 — rebuild vs incremental | ✅ Resolved | **Rebuild** theo Phase 0 v2 monorepo |
 
 ---
 
@@ -261,6 +262,60 @@ Backward compatibility: giữ ít nhất 1 transition window khi introduce versi
 
 ---
 
+## ADR-13 — Track chính cho Phase 0: Rebuild theo monorepo mới
+
+**Quyết định:**
+
+**Rebuild** Dẹo Enterprise OS theo cấu trúc monorepo định nghĩa trong `ENTERPRISE_HUMAN_AI_HYBRID_OS_PHASE0_CHECKLIST_v2.md` thay vì nâng cấp incremental codebase `apps/api` + `apps/web` hiện tại.
+
+**Cấu trúc đích:**
+
+```
+apps/
+  api/        ← rebuild from scratch theo route → service → repository
+  web/        ← rebuild với TanStack Query + Zustand (ADR-11)
+  worker/     ← skeleton mới
+packages/
+  shared/     ← types + DTOs + response envelopes (ADR-05)
+  sdk/        ← typed API client
+integrations/
+  openclaw/   ← client/transport layer (ADR-04)
+  n8n/
+  google-drive/
+infrastructure/
+  postgres/
+  redis/
+  docker/
+  nginx/
+docs/
+  architecture/
+  runbooks/
+  decisions/
+```
+
+**Codebase hiện tại (`apps/api` 16 routes, `apps/web` 9 pages, migrations 001-007):**
+- Đóng băng tại tag `v1.2.0-dev-frozen`
+- Production v0.2.3 trên VPS tiếp tục chạy parallel cho đến khi rebuild đạt feature parity
+- Code cũ làm reference khi port logic — không kéo nguyên file sang
+
+**Lý do:**
+
+1. **Phase 0 v2 yêu cầu cấu trúc và contract khác biệt căn bản**: route → service → repository pattern, response envelope ADR-05, RLS, correlation ID, Pino, service token middleware — sửa incremental sẽ tạo ra Frankenstein nửa cũ nửa mới.
+2. **Contract debt từ v0.2.3 quá nặng** (`KNOWN_ISSUES.md` mục 2-4): `agent-jobs` lệch schema, frontend/backend type mismatch, runtime patch agent-admin nằm ngoài repo. Rebuild xóa hết debt một lần.
+3. **GoClaw là agent layer mới hoàn toàn**: app cũ vốn assume OpenClaw — schema/contract phải redesign để khớp GoClaw + n8n + 13 agents (v3.1.0).
+4. **Tránh mất budget vào migration code không tương lai**: thời gian sửa `agent-jobs` cho khớp schema cũ tốt hơn dùng để build sạch theo schema mới.
+
+**Hệ quả:**
+
+- **Trade-off:** parallel maintenance — production v0.2.3 vẫn cần hotfix khi sự cố, nhưng không thêm feature mới vào branch cũ.
+- **Cutover**: chỉ khi monorepo mới đạt **Phase 0 Exit Criteria** (Section 19 của checklist v2) thì mới chuyển traffic.
+- **Code cũ** giữ trong git history và branch `legacy/v1.2.0-dev`; xóa khỏi `main` sau cutover.
+- **`agent-jobs` route**: deprecated, không port. Bridge `/api/tasks` được formalize trong API mới.
+
+**Status:** ✅ Resolved — 2026-05-04
+
+---
+
 ## Checklist cập nhật plan sau khi chốt ADR
 
 - [x] Thống nhất schema name → `deo` (ADR-03)
@@ -276,4 +331,4 @@ Backward compatibility: giữ ít nhất 1 transition window khi introduce versi
 
 ---
 
-*Version: 2.0 — Fully resolved — 2026-04-12*
+*Version: 2.1 — 13 ADRs resolved — 2026-05-04*

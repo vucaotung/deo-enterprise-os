@@ -1,5 +1,107 @@
 # CHANGELOG
 
+## [Unreleased] — Sprint A: Foundation Cleanup
+
+### Housekeeping
+- Xóa duplicate tree `/deo-enterprise-os/` nested (di sản submodule conversion).
+- Promote `CHANGELOG.md`, `VERSION.md`, `goclaw/config/HOOKS_PLAN.md` từ nested → root.
+- Thêm `.env.local`, `.env.*.local` vào `.gitignore` (chặn leak token).
+
+### Decisions
+- **ADR-13**: Rebuild theo Phase 0 v2 monorepo. Code cũ đóng băng, không port `agent-jobs`.
+
+### Known Issues cleanup
+- Resolved #1 (duplicate tree), #5 (GitHub repo).
+- Decided #2 (`agent-jobs` deprecated by ADR-13).
+- Demoted #1b (local↔VPS drift) P0 → P1.
+
+### Security
+- ⚠️ GoClaw gateway token đã leak qua commit `2248ef4` (`deo-enterprise-os/.env.local`). **Cần rotate.**
+
+---
+
+## [v3.1.0] — 2026-04-22
+
+### 🤖 Agents Live — 13 Agents Deployed on GoClaw
+
+#### Added
+
+**13 agents fully configured với 8 context files mỗi agent:**
+- `SOUL.md` — personality và behavioral guidelines
+- `IDENTITY.md` — tên, role, trigger phrases
+- `AGENTS.md` — delegation rules, quy trình nghiệp vụ
+- `CAPABILITIES.md` — domain expertise (file mới, không có trong v3.0)
+- `TOOLS.md` — MCP tools available per agent
+- `USER_PREDEFINED.md` — shared user context per agent type (file mới)
+- `BOOTSTRAP.md` — khởi động instructions
+- `MEMORY.md` — initial memory state
+
+**Agents deployed (GoClaw dashboard + context files uploaded):**
+| Agent | Model | Channel |
+|---|---|---|
+| `deo` | gpt-5.4 → claude-sonnet-4-6* | Telegram |
+| `office-agent` | gpt-5.4 → claude-sonnet-4-6* | Zalo |
+| `hr-agent` | gemma-4-31b → claude-sonnet-4-6* | Zalo |
+| `finance-agent` | minimax-m2.5 → claude-sonnet-4-6* | Zalo |
+| `crm-agent` | gpt-4o → claude-sonnet-4-6* | Zalo |
+| `it-dev-agent` | gpt-4o → claude-sonnet-4-6* | Telegram |
+| `office-admin-agent` | gpt-4o → claude-sonnet-4-6* | Zalo |
+| `marketing-agent` | gpt-5.4 → claude-sonnet-4-6* | Zalo |
+| `legal-agent` | gpt-5.4 → claude-sonnet-4-6* | Zalo |
+| `project-manager-agent` | gpt-5.4 → claude-sonnet-4-6* | Zalo |
+| `researcher-agent` | minimax-m2.5 → claude-sonnet-4-6* | Telegram |
+| `dream-agent` | gpt-4o → claude-opus-4-6* | Internal |
+| `ops-admin` | minimax-m2.5 → claude-opus-4-6* | Zalo |
+
+> *Target model sau khi có Anthropic API key
+
+**New files:**
+- `goclaw/agents/AGENTS_REGISTRY.md` v2.1 — 13 agents, model table, channel strategy, setup order
+- `goclaw/agents/*/CAPABILITIES.md` — 13 files, domain expertise per agent
+- `goclaw/agents/*/USER_PREDEFINED.md` — 13 files, shared user context per agent type
+- `goclaw/config/MULTI_TENANCY.md` — updated channel strategy, port fix, n8n webhook
+- `goclaw/config/HOOKS_PLAN.md` — Agent Hooks plan (5 hooks)
+
+#### Changed
+
+- **Channel strategy finalized:**
+  - Telegram: `deo` (sếp only), `it-dev-agent`, `researcher-agent`
+  - Zalo: tất cả business agents (hr, finance, crm, office, marketing, legal, project-manager, ops-admin)
+  - Lý do: nhân viên chủ yếu tương tác qua Zalo; Telegram chỉ cho sếp + technical agents
+
+- **Agent count:** 11 → 13 (thêm `crm-agent`, `marketing-agent`, `legal-agent`, `project-manager-agent`, `ops-admin` vào full registry)
+
+- **Port correction:** 3777 → `18790` trong tất cả docs và commands (GoClaw Docker actual port)
+
+- **AGENTS_REGISTRY.md v2.1:**
+  - Thêm "Model thực tế" table (hiện tại vs target)
+  - TODO migration note khi có Anthropic key
+  - Channel mapping Telegram/Zalo rõ ràng
+
+#### Infrastructure
+
+- **GoClaw Standard Edition** running on `localhost:18790` (Docker)
+- **Gateway token** configured: `.env.local` + `C:\goclaw\.env`
+- **Context files** uploaded via `PUT /api/v1/agents/{key}/context-files` API (65 file uploads)
+- **n8n cron** workflow setup: dream-agent `daily-reflection` trigger at 21:00
+
+#### Known Issues
+
+- 3 agents returning 500 on chat test: `crm-agent`, `it-dev-agent`, `office-admin-agent` — under investigation
+- `dream-agent` persona: đang dùng gpt-4o + SOUL.md fix (gemma model không follow context files)
+- Anthropic API key chưa có — tất cả agents tạm dùng OpenAI models
+
+#### Hooks Plan (goclaw/config/HOOKS_PLAN.md)
+
+5 hooks được plan cho v3.2.0:
+1. **User Context Injection** (`before_chat`) — inject user profile từ EOS DB vào mỗi request
+2. **Conversation Logger** (`after_chat`) — log tất cả conversations vào `agent_conversations` table
+3. **Rate Limiter** (`before_chat`) — giới hạn staff 20 msg/giờ, management 100 msg/giờ
+4. **Error Alerter** (`on_error`) — Telegram alert khi critical agents (deo/finance/hr) lỗi
+5. **Off-hours Blocker** (`before_chat`) — hr/finance/legal từ chối ngoài giờ làm việc
+
+---
+
 ## [1.2.0] — Planned (May 2026)
 
 ### 🧠 2nd Brain Integration
