@@ -45,9 +45,22 @@ Chuyển từ "build từ đầu" (plan v3 GoClaw) sang "fork + extend" để ti
   - Day 6: Hardening + Drift Verification + Tests
   - Day 7: Documentation + Demo + Handoff
 
+#### Sprint 1 tuần — scope đã chốt (2026-05-05)
+- **Goal**: MVP working bot
+- **Channel**: Telegram only (Zalo + WhatsApp DEFERRED sang sprint 2)
+- **Agents**: 5 agents × mixed providers
+  - `ceo` → Claude Opus 4.7
+  - `crm-agent` → GPT-5.4-mini
+  - `finance-agent` → Claude Sonnet 4.6
+  - `hr-agent` → GPT-5.4-mini
+  - `support-agent` → GPT-5.4-mini
+- **Deploy**: VPS HTTPS Day 5
+- **DoD**: User gửi Telegram → routing keyword → 3 agent khác provider reply → Issue + Activity Log + Budget cost event tag đúng provider
+
 #### Status
 - Plan: ✅ Approved by stakeholder
-- Implementation: 🚀 Sprint 1 tuần bắt đầu
+- Sprint scope: ✅ Confirmed
+- Implementation: 🚀 Awaiting Day 1 prerequisites (VPS + domain + tokens)
 
 ---
 

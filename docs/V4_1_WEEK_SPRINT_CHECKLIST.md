@@ -1,8 +1,8 @@
 # DEO Enterprise OS v4 — Sprint 1 Tuần (Paperclip Fork + OpenClaw Integration)
 
-> **Mục tiêu**: hoàn thành P0' + P1' + P2' rút gọn trong 7 ngày — đủ để 1 user nhắn Telegram/Zalo, OpenClaw agent reply, mọi hoạt động log vào Paperclip UI.
+> **Scope đã chốt** (2026-05-05): MVP working bot — Telegram only, 5 agents × mixed providers, deploy VPS Day 5. Zalo + WhatsApp đẩy sang sprint 2.
 >
-> **Definition of Done sprint**: 1 user gửi tin Telegram/Zalo → tin tạo Paperclip Issue → assign agent CEO → OpenClaw execute (gọi Claude/GPT theo per-agent config) → reply về Telegram/Zalo → Activity Log có row → Budget tracking phản ánh cost → toàn bộ chạy trên VPS Docker.
+> **Definition of Done sprint**: 1 user gửi tin **Telegram** → tin tạo Paperclip Issue → assign agent CEO → OpenClaw execute (gọi Claude/GPT theo per-agent config) → reply về Telegram → Activity Log có row → Budget tracking phản ánh cost → toàn bộ chạy trên **VPS Docker với HTTPS**.
 
 Plan đầy đủ: `ENTERPRISE_HUMAN_AI_HYBRID_OS_PLAN_v4_PAPERCLIP_OPENCLAW.md`
 
@@ -13,11 +13,10 @@ Plan đầy đủ: `ENTERPRISE_HUMAN_AI_HYBRID_OS_PLAN_v4_PAPERCLIP_OPENCLAW.md`
 - [ ] VPS đã sẵn sàng: 4+ vCPU, 16GB+ RAM, 200GB SSD, Ubuntu 22.04+
 - [ ] Domain `os.deo.vn` (hoặc subdomain tương đương) trỏ về VPS
 - [ ] Telegram bot đã tạo qua @BotFather, có `TELEGRAM_BOT_TOKEN`
-- [ ] Zalo bot tạo qua [bot.zaloplatforms.com](https://bot.zaloplatforms.com), có `ZALO_BOT_TOKEN`
-- [ ] (Optional) WhatsApp Business API account
-- [ ] Anthropic API key (`ANTHROPIC_API_KEY`)
-- [ ] OpenAI API key (`OPENAI_API_KEY`) cho fallback
-- [ ] (Optional) Google Gemini API key
+- [ ] Anthropic API key (`ANTHROPIC_API_KEY`) — primary cho ceo + finance
+- [ ] OpenAI API key (`OPENAI_API_KEY`) — primary cho crm + hr + support
+- [ ] ~~Zalo bot~~ — DEFERRED sang sprint 2
+- [ ] ~~WhatsApp Business API~~ — DEFERRED sang sprint 2
 - [ ] GitHub repo access (`vucaotung/deo-enterprise-os`)
 - [ ] SSH key VPS đã setup
 - [ ] Docker + Docker Compose đã cài trên VPS
@@ -97,20 +96,18 @@ Plan đầy đủ: `ENTERPRISE_HUMAN_AI_HYBRID_OS_PLAN_v4_PAPERCLIP_OPENCLAW.md`
 
 ---
 
-## Day 3 — Channels Native (Telegram + Zalo) (P2' rút gọn)
+## Day 3 — Channel Native (Telegram only) (P2' rút gọn)
 
-**Goal**: Telegram + Zalo inbound + outbound chạy native qua OpenClaw, hook vào Paperclip Issue.
+**Goal**: Telegram inbound + outbound chạy native qua OpenClaw, hook vào Paperclip Issue. Zalo defer sang sprint 2.
 
 ### Morning (4h)
-- [ ] Đọc `docs.openclaw.ai/channels/telegram.md` + `channels/zalo.md` (30 phút)
-- [ ] Set env `TELEGRAM_BOT_TOKEN`, `ZALO_BOT_TOKEN` trong OpenClaw secrets
+- [ ] Đọc `docs.openclaw.ai/channels/telegram.md` (15 phút)
+- [ ] Set env `TELEGRAM_BOT_TOKEN` trong OpenClaw secrets
 - [ ] Cấu hình `channels.telegram.accounts.default.botToken` trong OpenClaw config
-- [ ] Cấu hình `channels.zalo.accounts.default.botToken` (DM-only, pairing default)
-- [ ] Restart OpenClaw, verify channel status:
-  - `openclaw channels status --probe`
-  - `openclaw pairing list zalo` (chờ pairing code)
-- [ ] Pair với Zalo bot (gửi tin nhắn từ user → approve pairing)
-- [ ] Test direct Telegram inbound → confirm OpenClaw nhận
+- [ ] Restart OpenClaw, verify channel status: `openclaw channels status --probe`
+- [ ] Test direct Telegram inbound → confirm OpenClaw nhận message
+- [ ] Test direct Telegram outbound qua agent CLI → confirm user thấy reply
+- [ ] Buffer time: tinker với routing rule (1h dự phòng)
 
 ### Afternoon (4h)
 - [ ] Setup OpenClaw hook `onChannelMessage` POST tới Paperclip:
@@ -118,18 +115,21 @@ Plan đầy đủ: `ENTERPRISE_HUMAN_AI_HYBRID_OS_PLAN_v4_PAPERCLIP_OPENCLAW.md`
   - Auth: shared `PAPERCLIP_INTERNAL_TOKEN`
 - [ ] Build endpoint `POST /api/internal/channel-event` trong Paperclip (extension):
   - Validate auth token
-  - Tạo Issue với `metadata.channel`, `metadata.peer`
-  - Auto-assign `ceo` agent (hoặc routing rule based on keyword)
+  - Tạo Issue với `metadata.channel="telegram"`, `metadata.peer=<chat_id>`
+  - Routing rule: keyword `crm/lead/khách` → crm-agent, `chi/thu/expense` → finance-agent, default → ceo
   - Trigger heartbeat qua adapter
 - [ ] Test E2E:
-  - Gửi tin "hello" qua Telegram → tạo Issue → CEO agent reply → tin reply về Telegram
-  - Tương tự với Zalo
+  - Gửi "hello" qua Telegram → CEO agent reply (Claude Opus)
+  - Gửi "lead mới" → CRM agent reply (GPT mini) — confirm routing
+  - Gửi "chi 500k" → Finance agent reply (Claude Sonnet)
+- [ ] Verify mỗi tin → 1 Issue + Activity Log + Budget cost event
 
 ### EOD checkpoint
-- [ ] Telegram + Zalo bidirectional hoạt động
+- [ ] Telegram bidirectional hoạt động
+- [ ] 3 keyword route đúng đến 3 agent khác nhau (multi-provider proven)
 - [ ] Mỗi tin nhắn → 1 Issue trong Paperclip board
-- [ ] Activity Log hiển thị: inbound message → agent run → outbound reply
-- [ ] Cost event ghi vào Budget dashboard
+- [ ] Activity Log hiển thị: inbound → agent run → outbound
+- [ ] Cost event ghi vào Budget dashboard với đúng provider tag
 
 ---
 
@@ -189,10 +189,10 @@ Plan đầy đủ: `ENTERPRISE_HUMAN_AI_HYBRID_OS_PLAN_v4_PAPERCLIP_OPENCLAW.md`
 - [ ] `docker compose up -d` lần đầu, check logs
 - [ ] Verify TLS certs từ Caddy (Let's Encrypt auto)
 - [ ] Restore Paperclip company từ local export (companies.sh)
-- [ ] Setup webhook URL của Telegram/Zalo bot trỏ về `https://hooks.deo.vn/...`
+- [ ] Setup webhook URL của Telegram bot trỏ về `https://hooks.deo.vn/...`
 - [ ] Test E2E từ user thật:
   - Gửi tin Telegram → reply
-  - Gửi tin Zalo → reply
+  - Gửi tin "lead mới" → CRM agent reply
   - Login Paperclip UI tại `https://os.deo.vn`
 - [ ] Setup automated daily Postgres backup (cron + pg_dump → upload Drive/S3)
 
@@ -273,11 +273,12 @@ Plan đầy đủ: `ENTERPRISE_HUMAN_AI_HYBRID_OS_PLAN_v4_PAPERCLIP_OPENCLAW.md`
   - Prepare demo script (5 phút)
   - Test 3 lần liên tiếp pass
 - [ ] Live demo cho stakeholder:
-  - User gửi Telegram → agent reply (Anthropic Claude)
-  - User gửi Zalo → agent CRM reply (OpenAI GPT) gọi MCP biz-api
-  - Mở Paperclip dashboard → show budget + activity
-  - Trigger Routine manual → show heartbeat run
-  - Show drift verification
+  - User gửi "hello" Telegram → CEO agent reply (Claude Opus 4.7)
+  - User gửi "lead mới ABC" Telegram → CRM agent reply (GPT-5.4-mini) gọi MCP biz-api
+  - User gửi "chi 500k ăn trưa" Telegram → Finance agent (Claude Sonnet 4.6)
+  - Mở Paperclip dashboard → show 3 cost events khác provider, budget breakdown
+  - Trigger Routine "daily standup" manual → show heartbeat run với runId
+  - Show drift verification: `openclaw cron list` empty
 - [ ] Retrospective:
   - What worked
   - What didn't
@@ -309,7 +310,8 @@ Plan đầy đủ: `ENTERPRISE_HUMAN_AI_HYBRID_OS_PLAN_v4_PAPERCLIP_OPENCLAW.md`
 - ❌ CRM/HR/Finance/Attendance domain modules (chỉ skeleton)
 - ❌ Migration data v0.2.3 → v4
 - ❌ i18n Paperclip UI tiếng Việt đầy đủ
-- ❌ WhatsApp channel (chỉ Telegram + Zalo)
+- ❌ Zalo channel — DEFERRED (sprint 2 ưu tiên cao)
+- ❌ WhatsApp channel
 - ❌ Multi-channel multi-account (1 account / channel)
 - ❌ Honcho/QMD/LanceDB memory backends (chỉ builtin)
 - ❌ Memory Wiki layer
