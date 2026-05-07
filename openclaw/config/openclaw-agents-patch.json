@@ -1,0 +1,93 @@
+{
+  "_comment": "Thêm các entries trong agents_to_add vào agents.list trong ~/.openclaw/openclaw.json. Giữ nguyên main và aurora.",
+
+  "agents_to_add": [
+    {
+      "id": "office-agent",
+      "model": {
+        "primary": "openai-codex/gpt-5.4",
+        "fallbacks": ["claude-cli/claude-sonnet-4-6", "9router/Combo1"]
+      }
+    },
+    {
+      "id": "hr-agent",
+      "model": {
+        "primary": "claude-cli/claude-sonnet-4-6",
+        "fallbacks": ["9router/Combo1", "nvidia/google/gemma-4-31b-it"]
+      }
+    },
+    {
+      "id": "finance-agent",
+      "model": {
+        "primary": "claude-cli/claude-sonnet-4-6",
+        "fallbacks": ["9router/Combo1", "nvidia/google/gemma-4-31b-it"]
+      }
+    },
+    {
+      "id": "crm-agent",
+      "model": {
+        "primary": "openai-codex/gpt-5.4",
+        "fallbacks": ["9router/Combo1", "nvidia/google/gemma-4-31b-it"]
+      }
+    },
+    {
+      "id": "it-dev-agent",
+      "model": {
+        "primary": "claude-cli/claude-sonnet-4-6",
+        "fallbacks": ["openai-codex/gpt-5.4", "9router/Combo1"]
+      }
+    },
+    {
+      "id": "office-admin-agent",
+      "model": {
+        "primary": "9router/Combo1",
+        "fallbacks": ["nvidia/google/gemma-4-31b-it", "openai-codex/gpt-5.4-mini"]
+      }
+    },
+    {
+      "id": "marketing-agent",
+      "model": {
+        "primary": "openai-codex/gpt-5.4",
+        "fallbacks": ["claude-cli/claude-sonnet-4-6", "9router/Combo1"]
+      }
+    },
+    {
+      "id": "legal-agent",
+      "model": {
+        "primary": "claude-cli/claude-sonnet-4-6",
+        "fallbacks": ["openai-codex/gpt-5.4", "9router/Combo1"]
+      }
+    },
+    {
+      "id": "project-manager-agent",
+      "model": {
+        "primary": "openai-codex/gpt-5.4",
+        "fallbacks": ["claude-cli/claude-sonnet-4-6", "9router/Combo1"]
+      }
+    },
+    {
+      "id": "researcher-agent",
+      "model": {
+        "primary": "openai-codex/gpt-5.4",
+        "fallbacks": ["claude-cli/claude-sonnet-4-6", "9router/Combo1"]
+      }
+    },
+    {
+      "id": "dream-agent",
+      "model": {
+        "primary": "claude-cli/claude-sonnet-4-6",
+        "fallbacks": ["openai-codex/gpt-5.4"]
+      }
+    },
+    {
+      "id": "ops-admin",
+      "model": {
+        "primary": "claude-cli/claude-sonnet-4-6",
+        "fallbacks": ["openai-codex/gpt-5.4", "9router/Combo1"]
+      }
+    }
+  ],
+
+  "_note_cron": "Sau khi add agents xong, bật cron trong openclaw.json: set cron.enabled = true, rồi dùng openclaw cron để add schedules từ openclaw/cron/schedules.json5",
+  "_note_bindings": "Dùng 'openclaw agents bind <id> --channel telegram --group <group-id>' để route tin nhắn từ các Telegram group vào đúng agent"
+}
