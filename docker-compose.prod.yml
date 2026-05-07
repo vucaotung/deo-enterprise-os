@@ -49,6 +49,9 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
       CORS_ORIGIN: ${CORS_ORIGIN:-https://dash.enterpriseos.bond}
+      ENTERPRISE_OS_MCP_TOKEN: ${ENTERPRISE_OS_MCP_TOKEN}
+      ENTERPRISE_OS_MCP_COMPANY_ID: ${ENTERPRISE_OS_MCP_COMPANY_ID:-}
+      ENTERPRISE_OS_MCP_ACTOR_ID: ${ENTERPRISE_OS_MCP_ACTOR_ID:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,6 +71,9 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-deo}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-deo_os}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
+      ENTERPRISE_OS_MCP_TOKEN: ${ENTERPRISE_OS_MCP_TOKEN}
+      ENTERPRISE_OS_MCP_COMPANY_ID: ${ENTERPRISE_OS_MCP_COMPANY_ID:-}
+      ENTERPRISE_OS_MCP_ACTOR_ID: ${ENTERPRISE_OS_MCP_ACTOR_ID:-}
     depends_on:
       postgres:
         condition: service_healthy
