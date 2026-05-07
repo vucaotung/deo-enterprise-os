@@ -86,6 +86,8 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api.enterpriseos.bond/api}
     restart: unless-stopped
     depends_on:
       - api
