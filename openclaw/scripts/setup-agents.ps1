@@ -1,4 +1,4 @@
-# setup-agents.ps1
+﻿# setup-agents.ps1
 # Adds 12 department agents to OpenClaw for Deo Enterprise OS
 # Run from PowerShell: .\setup-agents.ps1
 # Prerequisite: openclaw gateway must be running (openclaw gateway --force)
@@ -8,7 +8,7 @@ $OPENCLAW_STATE = "$env:USERPROFILE\.openclaw"
 $REPO_ROOT = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $AGENTS_SRC = "$REPO_ROOT\openclaw\agents"
 
-Write-Host "=== Deo Enterprise OS — Agent Setup ===" -ForegroundColor Cyan
+Write-Host "=== Deo Enterprise OS - Agent Setup ===" -ForegroundColor Cyan
 Write-Host "Source: $AGENTS_SRC"
 Write-Host "State:  $OPENCLAW_STATE"
 Write-Host ""
