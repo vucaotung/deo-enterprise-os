@@ -62,12 +62,13 @@ $agents = @(
 foreach ($agentId in $agents) {
     Write-Host "--- $agentId ---" -ForegroundColor Yellow
 
-    # Add agent
-    $addOutput = openclaw agents add $agentId 2>&1
+    # Add agent (--no-configure skips the interactive setup wizard)
+    $addOutput = openclaw agents add $agentId --no-configure 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Added: $addOutput" -ForegroundColor Green
     } else {
-        # May already exist
+        # Try without flag (older versions may not support --no-configure)
+        $addOutput = openclaw agents add $agentId 2>&1
         Write-Host "Note: $addOutput" -ForegroundColor DarkYellow
     }
 
