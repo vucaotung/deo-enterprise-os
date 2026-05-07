@@ -140,9 +140,18 @@ async function logAgentAction(args: {
   const auditId = uuidv4();
 
   await dbQuery(
-    `INSERT INTO deo.audit_events (id, company_id, user_id, action, entity_type, entity_id, new_values, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-    [auditId, companyId, actorId, args.action_type, args.entity_type, args.entity_id, args.metadata ? JSON.stringify(args.metadata) : null]
+    `INSERT INTO deo.audit_events (id, event_type, actor_type, actor_id, entity_type, entity_id, company_id, data, channel, created_at)
+     VALUES ($1, $2, 'agent', $3, $4, $5, $6, $7, $8, NOW())`,
+    [
+      auditId,
+      args.action_type,
+      actorId,
+      args.entity_type,
+      args.entity_id,
+      companyId,
+      JSON.stringify(args.metadata || {}),
+      args.metadata?.source_channel || null,
+    ]
   );
 
   return { id: auditId, company_id: companyId, actor_id: actorId, logged: true };
