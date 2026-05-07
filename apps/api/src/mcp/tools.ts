@@ -167,8 +167,8 @@ async function createTask(args: JsonObject) {
   const taskId = uuidv4();
 
   await dbQuery(
-    `INSERT INTO deo.tasks (id, company_id, project_id, title, description, status, workflow_status, priority, created_by, assigned_to, due_date, progress_percentage, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 0, NOW(), NOW())`,
+    `INSERT INTO deo.tasks (id, company_id, project_id, title, description, status, workflow_status, priority, created_by, assigned_to, due_date, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
     [
       taskId,
       companyId,
@@ -309,7 +309,7 @@ async function listProjects(args: JsonObject) {
         SUM(CASE WHEN ${projectTaskWorkflowExpr} = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_tasks,
         SUM(CASE WHEN ${projectTaskWorkflowExpr} = 'completed' THEN 1 ELSE 0 END) AS completed_tasks,
         SUM(CASE WHEN ${projectTaskWorkflowExpr} = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_tasks,
-        COALESCE(ROUND(AVG(COALESCE(t.progress_percentage, CASE WHEN ${projectTaskWorkflowExpr} = 'completed' THEN 100 ELSE 0 END))), 0) AS progress_percent
+        COALESCE(ROUND(AVG(CASE WHEN ${projectTaskWorkflowExpr} = 'completed' THEN 100 ELSE 0 END)), 0) AS progress_percent
       FROM deo.tasks t
       WHERE t.project_id = p.id
     ) task_stats ON true
@@ -345,7 +345,7 @@ async function queryProject(args: JsonObject) {
         SUM(CASE WHEN ${projectTaskWorkflowExpr} = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_tasks,
         SUM(CASE WHEN ${projectTaskWorkflowExpr} = 'completed' THEN 1 ELSE 0 END) AS completed_tasks,
         SUM(CASE WHEN ${projectTaskWorkflowExpr} = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_tasks,
-        COALESCE(ROUND(AVG(COALESCE(t.progress_percentage, CASE WHEN ${projectTaskWorkflowExpr} = 'completed' THEN 100 ELSE 0 END))), 0) AS progress_percent
+        COALESCE(ROUND(AVG(CASE WHEN ${projectTaskWorkflowExpr} = 'completed' THEN 100 ELSE 0 END)), 0) AS progress_percent
       FROM deo.tasks t
       WHERE t.project_id = p.id
     ) task_stats ON true
