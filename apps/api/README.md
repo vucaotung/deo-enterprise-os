@@ -59,6 +59,25 @@ The server will start on port 3001 by default.
 curl http://localhost:3001/api/health
 ```
 
+### Enterprise OS MCP
+
+GoClaw can call the API through the streamable HTTP MCP endpoint:
+
+```bash
+curl -H "Authorization: $ENTERPRISE_OS_MCP_TOKEN" http://localhost:3001/mcp/health
+curl -H "Authorization: $ENTERPRISE_OS_MCP_TOKEN" http://localhost:3001/mcp/tools
+```
+
+Configure:
+
+```env
+ENTERPRISE_OS_MCP_TOKEN=change-this-mcp-service-token
+ENTERPRISE_OS_MCP_COMPANY_ID=optional-default-company-id
+ENTERPRISE_OS_MCP_ACTOR_ID=optional-default-user-id
+```
+
+`POST /mcp` supports JSON-RPC style `initialize`, `tools/list`, and `tools/call` requests. Exposed tools use the `eos_` prefix: `eos_create_task`, `eos_query_tasks`, `eos_update_task_status`, `eos_add_task_comment`, `eos_list_projects`, `eos_query_project`, `eos_get_dashboard_summary`, `eos_create_reminder`, `eos_register_drive_artifact`, and `eos_log_agent_action`.
+
 ## Production
 
 Build and run the production version:
