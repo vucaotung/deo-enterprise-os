@@ -58,14 +58,6 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
-app.post('/api/auth/login', async (req: Request, res: Response) => {
-  try {
-    await authRoutes(req as any, res, () => {});
-  } catch (error) {
-    console.error('Auth route error', error);
-  }
-});
-
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', authMiddleware, dashboardRoutes);
 app.use('/api/tasks', authMiddleware, tasksRoutes);
