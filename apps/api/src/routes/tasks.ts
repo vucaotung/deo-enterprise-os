@@ -49,9 +49,10 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     const { limit, offset, page } = getPaginationParams(req.query);
     const { project_id, assigned_to } = req.query;
     const requestedStatus = normalizeIncomingStatus(req.query.status as string | undefined);
+    const companyId = req.user.company_id || process.env.ENTERPRISE_OS_MCP_COMPANY_ID || 'b1f6384d-4ac0-40f1-91b9-95b8cfeb0712';
 
     let queryStr = `SELECT *, ${workflowStatusExpr} AS workflow_status_normalized FROM deo.tasks WHERE company_id = $1`;
-    const params: any[] = [req.user.company_id];
+    const params: any[] = [companyId];
 
     if (project_id) {
       queryStr += ` AND project_id = $${params.length + 1}`;

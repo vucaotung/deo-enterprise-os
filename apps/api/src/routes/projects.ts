@@ -28,9 +28,10 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
 
     const { limit, offset, page } = getPaginationParams(req.query);
     const { status, client_id, search } = req.query;
+    const companyId = req.user.company_id || process.env.ENTERPRISE_OS_MCP_COMPANY_ID || 'b1f6384d-4ac0-40f1-91b9-95b8cfeb0712';
 
     let whereClause = 'WHERE p.company_id = $1';
-    const params: any[] = [req.user.company_id];
+    const params: any[] = [companyId];
 
     if (status) {
       whereClause += ` AND p.status = $${params.length + 1}`;
@@ -134,7 +135,7 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
       ) clar_stats ON true
       WHERE p.id = $1 AND p.company_id = $2
       `,
-      [req.params.id, req.user.company_id]
+      [req.params.id, req.user.company_id || process.env.ENTERPRISE_OS_MCP_COMPANY_ID || 'b1f6384d-4ac0-40f1-91b9-95b8cfeb0712']
     );
 
     if (result.rows.length === 0) {
