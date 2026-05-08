@@ -69,8 +69,8 @@ router.post('/', authMiddleware, async (req: AuditedRequest, res: Response) => {
     const jobId = uuidv4();
 
     await dbQuery(
-      `INSERT INTO deo.tasks (id, company_id, title, description, status, priority, created_by, progress_percentage, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 0, NOW(), NOW())`,
+      `INSERT INTO deo.tasks (id, company_id, title, description, status, priority, created_by, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
       [jobId, req.user.company_id, title, description || null, 'open', priority || 'medium', req.user.id]
     );
 
@@ -120,7 +120,6 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
       status: task.status,
       priority: task.priority,
       assigned_to: task.assigned_to,
-      progress_percentage: task.progress_percentage,
       created_at: task.created_at,
       updated_at: task.updated_at,
     });
@@ -144,7 +143,7 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
     }
 
     const oldJob = oldResult.rows[0];
-    const { status, progress_percentage } = req.body;
+    const { status } = req.body;
 
     const updates: string[] = [];
     const values: any[] = [];
@@ -152,10 +151,6 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
     if (status !== undefined) {
       updates.push(`status = $${values.length + 1}`);
       values.push(status);
-    }
-    if (progress_percentage !== undefined) {
-      updates.push(`progress_percentage = $${values.length + 1}`);
-      values.push(progress_percentage);
     }
 
     if (updates.length === 0) {
@@ -182,7 +177,6 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
       id: task.id,
       title: task.title,
       status: task.status,
-      progress_percentage: task.progress_percentage,
       updated_at: task.updated_at,
     });
   } catch (error) {
@@ -261,7 +255,7 @@ router.post('/:id/retry', authMiddleware, async (req: AuditedRequest, res: Respo
     }
 
     const result = await dbQuery(
-      'UPDATE deo.tasks SET status = $1, progress_percentage = 0, updated_at = NOW() WHERE id = $2 RETURNING *',
+      'UPDATE deo.tasks SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
       ['open', jobId]
     );
 
@@ -270,7 +264,7 @@ router.post('/:id/retry', authMiddleware, async (req: AuditedRequest, res: Respo
     req.auditData = {
       entity_type: 'job',
       entity_id: jobId,
-      new_values: { status: 'open', progress_percentage: 0 },
+      new_values: { status: 'open' },
     };
 
     const task = result.rows[0];
@@ -279,7 +273,6 @@ router.post('/:id/retry', authMiddleware, async (req: AuditedRequest, res: Respo
       id: task.id,
       title: task.title,
       status: task.status,
-      progress_percentage: task.progress_percentage,
     });
   } catch (error) {
     console.error('Retry job error', error);
