@@ -11,6 +11,12 @@ export interface AgentJobContext {
     description?: string | null;
     company_id: string;
   };
+  agent?: {
+    id: string;
+    name: string;
+    runtime_type?: string | null;
+    config: Record<string, unknown>;
+  } | null;
 }
 
 export interface RuntimeRunResult {

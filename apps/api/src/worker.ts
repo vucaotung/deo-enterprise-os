@@ -98,10 +98,12 @@ class Worker {
     const result = await dbQuery(
       `SELECT aj.id, aj.execution_id, aj.agent_id, aj.runtime_type, aj.input, aj.queue_state,
               te.task_id,
-              t.title AS task_title, t.description AS task_description, t.company_id
+              t.title AS task_title, t.description AS task_description, t.company_id,
+              a.name AS agent_name, a.runtime_type AS agent_runtime_type, a.config AS agent_config
          FROM deo.agent_jobs aj
          JOIN deo.task_executions te ON te.id = aj.execution_id
          JOIN deo.tasks t ON t.id = te.task_id
+         LEFT JOIN deo.agents a ON a.id = aj.agent_id
         WHERE aj.id = $1`,
       [agentJobId]
     );
@@ -124,6 +126,14 @@ class Worker {
         description: job.task_description,
         company_id: job.company_id,
       },
+      agent: job.agent_id
+        ? {
+            id: job.agent_id,
+            name: job.agent_name,
+            runtime_type: job.agent_runtime_type,
+            config: job.agent_config || {},
+          }
+        : null,
     };
 
     return { job, context };
