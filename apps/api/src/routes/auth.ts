@@ -31,10 +31,21 @@ router.post('/login', async (req: any, res: Response) => {
       return res.status(401).json({ error: 'User account is inactive' });
     }
 
+    const companyResult = await dbQuery(
+      `SELECT company_id
+       FROM deo.staff_assignments
+       WHERE user_id = $1 AND is_active = true
+       ORDER BY updated_at DESC
+       LIMIT 1`,
+      [user.id]
+    );
+
+    const companyId = user.company_id || companyResult.rows[0]?.company_id || process.env.ENTERPRISE_OS_MCP_COMPANY_ID;
+
     const token = generateToken({
       id: user.id,
       email: user.email,
-      company_id: user.company_id,
+      company_id: companyId,
       role: user.role,
     });
 
@@ -44,7 +55,7 @@ router.post('/login', async (req: any, res: Response) => {
         id: user.id,
         email: user.email,
         full_name: user.full_name,
-        company_id: user.company_id,
+        company_id: companyId,
         role: user.role,
       },
     });
