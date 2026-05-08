@@ -10,9 +10,10 @@ const path = require('path');
 const API_URL = (process.env.ENTERPRISE_OS_API_URL || 'https://api.enterpriseos.bond/api').replace(/\/$/, '');
 const TOKEN = process.env.ENTERPRISE_OS_MCP_TOKEN || process.env.AGENT_RUNNER_TOKEN;
 const RUNTIME_TYPE = process.env.AGENT_RUNTIME_TYPE || 'claude-code';
-const COMPANY_ID = process.env.AGENT_COMPANY_ID || '';
+const COMPANY_ID = process.env.AGENT_COMPANY_ID || 'b1f6384d-4ac0-40f1-91b9-95b8cfeb0712';
 const AGENT_ID = process.env.AGENT_ID || '';
 const WORKDIR_ROOT = path.resolve(process.env.CLAUDE_CODE_WORKDIR_ROOT || process.cwd());
+const CLAUDE_COMMAND = process.env.CLAUDE_CODE_COMMAND || (process.platform === 'win32' ? 'claude.exe' : 'claude');
 const POLL_MS = Number(process.env.AGENT_RUNNER_POLL_MS || 5000);
 const DEFAULT_TIMEOUT_MS = Number(process.env.CLAUDE_CODE_TIMEOUT_MS || 10 * 60 * 1000);
 const LOG_MAX = 16000;
@@ -95,7 +96,7 @@ const runClaude = (job) => new Promise((resolve) => {
   let timedOut = false;
   const started = Date.now();
 
-  const child = spawn('claude', args, { cwd: workdir, shell: process.platform === 'win32', windowsHide: true, env: process.env });
+  const child = spawn(CLAUDE_COMMAND, args, { cwd: workdir, shell: false, windowsHide: true, env: process.env });
   const timer = setTimeout(() => {
     timedOut = true;
     child.kill('SIGTERM');
