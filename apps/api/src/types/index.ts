@@ -101,7 +101,6 @@ export interface Task {
   due_date?: Date;
   estimated_hours?: number;
   actual_hours?: number;
-  progress_percentage: number;
   created_at: Date;
   updated_at: Date;
 }
