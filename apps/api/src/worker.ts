@@ -8,6 +8,12 @@ import { sweepStuckJobs } from './orchestrator/sweeper';
 const POLL_INTERVAL_MS = 1000;
 const SWEEP_INTERVAL_MS = 60000;
 const ERROR_BACKOFF_MS = 5000;
+const EXTERNAL_RUNNER_RUNTIMES = new Set(
+  (process.env.EXTERNAL_RUNNER_RUNTIMES || 'claude-code')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+);
 const LOG_TAIL_MAX = 16384;
 const SECRET_PATTERN = /(sk-[A-Za-z0-9_-]+|(?:api[_-]?key|token|password|secret)\s*[:=]\s*[^\s"']+)/gi;
 const ANSI_PATTERN = /[][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
@@ -52,7 +58,7 @@ class Worker {
   // then attempt LPOP on each. Avoids polling dead queue keys and keeps
   // discovery cost proportional to actual workload.
   private async processAllQueues() {
-    const supportedRuntimes = listRuntimeTypes();
+    const supportedRuntimes = listRuntimeTypes().filter((runtime) => !EXTERNAL_RUNNER_RUNTIMES.has(runtime));
     const result = await dbQuery(
       `SELECT DISTINCT t.company_id, aj.runtime_type
          FROM deo.agent_jobs aj
@@ -79,6 +85,11 @@ class Worker {
 
     if (job.queue_state !== 'queued') {
       // Lost race or already terminal — ignore.
+      return;
+    }
+
+    if (EXTERNAL_RUNNER_RUNTIMES.has(job.runtime_type)) {
+      // External/local runner owns this runtime; leave job queued.
       return;
     }
 
