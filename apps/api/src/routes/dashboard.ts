@@ -15,9 +15,9 @@ router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) =
     const [tasksResult, expensesResult, leadsResult, agentsResult, clarificationsResult] = await Promise.all([
       dbQuery(
         `SELECT COUNT(*) as total,
-                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-                SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open,
-                SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress
+                SUM(CASE WHEN COALESCE(workflow_status, status) = 'completed' THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN COALESCE(workflow_status, status) IN ('open', 'todo') THEN 1 ELSE 0 END) as open,
+                SUM(CASE WHEN COALESCE(workflow_status, status) = 'in_progress' THEN 1 ELSE 0 END) as in_progress
          FROM deo.tasks WHERE company_id = $1`,
         [companyId]
       ),
@@ -33,12 +33,15 @@ router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) =
         [companyId]
       ),
       dbQuery(
-        `SELECT COUNT(*) as online, SUM(CASE WHEN status = 'offline' THEN 1 ELSE 0 END) as offline
-         FROM deo.agents WHERE company_id = $1 AND status = 'online'`,
-        [companyId]
+        `SELECT SUM(CASE WHEN status = 'online' THEN 1 ELSE 0 END) as online,
+                SUM(CASE WHEN status = 'offline' THEN 1 ELSE 0 END) as offline
+         FROM deo.agents`
       ),
       dbQuery(
-        `SELECT COUNT(*) as total FROM deo.clarifications WHERE company_id = $1 AND status = 'pending'`,
+        `SELECT COUNT(*) as total
+         FROM deo.clarifications c
+         JOIN deo.tasks t ON t.id = c.task_id
+         WHERE t.company_id = $1 AND c.status IN ('open', 'pending')`,
         [companyId]
       ),
     ]);
@@ -57,9 +60,9 @@ router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) =
         in_progress: parseInt(tasksData.in_progress) || 0,
       },
       expenses: {
-        total: tasksData.total ? parseInt(expensesData.total) || 0 : 0,
+        total: parseInt(expensesData.total) || 0,
         count: parseInt(expensesData.count) || 0,
-        approved: expensesData.approved ? parseInt(expensesData.approved) || 0 : 0,
+        approved: parseInt(expensesData.approved) || 0,
       },
       leads: {
         total: parseInt(leadsData.total) || 0,
