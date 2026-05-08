@@ -1,10 +1,13 @@
 import { spawn } from 'child_process';
+import path from 'path';
 import { RuntimeAdapter, AgentJobContext, RuntimeRunResult } from './types';
 
 const LOG_TAIL_MAX = 16384;
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
 const MIN_TIMEOUT_MS = 1000;
 const MAX_TIMEOUT_MS = 60 * 60 * 1000;
+const WORKDIR_ROOT = path.resolve(process.env.CLAUDE_CODE_WORKDIR_ROOT || process.cwd());
+const SECRET_PATTERN = /(sk-[A-Za-z0-9_-]+|(?:api[_-]?key|token|password|secret)\s*[:=]\s*[^\s"']+)/gi;
 
 const asString = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim().length > 0 ? value : undefined;
@@ -21,11 +24,21 @@ const asNumber = (value: unknown): number | undefined => {
 const clampLog = (text: string): string =>
   text.length <= LOG_TAIL_MAX ? text : text.slice(text.length - LOG_TAIL_MAX);
 
+const redact = (value: string): string => value.replace(SECRET_PATTERN, '[REDACTED]');
+
 const sanitizeLogField = (value: unknown): string =>
-  String(value ?? '')
-    .replace(/[][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g, '')
+  redact(String(value ?? ''))
     .replace(/[\r\n\t\x00-\x1f\x7f]/g, ' ')
     .slice(0, 500);
+
+const sanitizeOutput = (value: string): string => clampLog(redact(value));
+
+const resolveWorkdir = (ctx: AgentJobContext): string => {
+  const requested = path.resolve(asString(ctx.agent?.config?.workdir) || process.cwd());
+  const relative = path.relative(WORKDIR_ROOT, requested);
+  if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) return requested;
+  throw new Error(`Agent workdir must be under ${WORKDIR_ROOT}`);
+};
 
 const resolveTimeoutMs = (ctx: AgentJobContext): number => {
   const rawTimeout = asNumber(ctx.agent?.config?.timeout_ms) ?? asNumber(ctx.input?.timeout_ms) ?? DEFAULT_TIMEOUT_MS;
@@ -35,8 +48,8 @@ const resolveTimeoutMs = (ctx: AgentJobContext): number => {
   return timeoutMs;
 };
 
-const buildPrompt = (ctx: AgentJobContext): string => {
-  const parts = [
+const buildPrompt = (ctx: AgentJobContext): string =>
+  [
     'You are an Enterprise OS coding/runtime agent invoked from the webapp control plane.',
     '',
     `agent_job_id: ${ctx.id}`,
@@ -51,13 +64,10 @@ const buildPrompt = (ctx: AgentJobContext): string => {
     JSON.stringify(ctx.input || {}, null, 2),
     '',
     'Do the requested work. Be concise in final output.',
-  ];
-
-  return parts.join('\n');
-};
+  ].join('\n');
 
 const runClaude = (ctx: AgentJobContext): Promise<RuntimeRunResult> => {
-  const workdir = asString(ctx.agent?.config?.workdir) || process.cwd();
+  const workdir = resolveWorkdir(ctx);
   const timeoutMs = resolveTimeoutMs(ctx);
   const prompt = buildPrompt(ctx);
   const args = ['--permission-mode', 'bypassPermissions', '--print', prompt];
@@ -83,11 +93,11 @@ const runClaude = (ctx: AgentJobContext): Promise<RuntimeRunResult> => {
     }, timeoutMs);
 
     child.stdout?.on('data', (chunk) => {
-      stdout = clampLog(stdout + chunk.toString());
+      stdout = sanitizeOutput(stdout + chunk.toString());
     });
 
     child.stderr?.on('data', (chunk) => {
-      stderr = clampLog(stderr + chunk.toString());
+      stderr = sanitizeOutput(stderr + chunk.toString());
     });
 
     child.on('error', (error) => {

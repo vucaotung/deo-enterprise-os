@@ -8,10 +8,12 @@ export const internalAdapter: RuntimeAdapter = {
       `[internal] stub adapter — no real work performed`,
       `[internal] echoing input keys: ${Object.keys(ctx.input).join(', ') || '(none)'}`,
     ];
+    const message = 'internal adapter is not configured for execution yet';
     return {
-      status: 'succeeded',
+      status: 'failed',
       output: { stub: 'internal', input_keys: Object.keys(ctx.input) },
-      log_tail: lines.join('\n') + '\n',
+      error: { message },
+      log_tail: [...lines, `[internal] ${message}`].join('\n') + '\n',
       tokens_in: 0,
       tokens_out: 0,
       cost_usd: 0,
