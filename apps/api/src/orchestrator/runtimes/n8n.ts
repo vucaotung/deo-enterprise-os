@@ -3,16 +3,15 @@ import { RuntimeAdapter } from './types';
 export const n8nAdapter: RuntimeAdapter = {
   name: 'n8n',
   async run(ctx) {
-    // Stub: real adapter triggers the n8n workflow referenced by
-    // workflow_definitions.n8n_entrypoint_url and resolves on the
-    // workflow's webhook callback. Tracked separately.
+    const message = 'n8n adapter is not configured for execution yet';
     const lines = [
-      `[n8n] agent_job=${ctx.id} task="${ctx.task.title}"`,
-      `[n8n] stub adapter — would trigger n8n workflow webhook`,
+      `[n8n] agent_job=${ctx.id} task="${String(ctx.task.title).replace(/[\r\n\t\x00-\x1f\x7f]/g, ' ')}"`,
+      `[n8n] ${message}`,
     ];
     return {
-      status: 'succeeded',
+      status: 'failed',
       output: { stub: 'n8n', task_title: ctx.task.title },
+      error: { message },
       log_tail: lines.join('\n') + '\n',
       tokens_in: 0,
       tokens_out: 0,

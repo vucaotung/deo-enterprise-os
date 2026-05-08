@@ -9,6 +9,15 @@ const POLL_INTERVAL_MS = 1000;
 const SWEEP_INTERVAL_MS = 60000;
 const ERROR_BACKOFF_MS = 5000;
 const LOG_TAIL_MAX = 16384;
+const SECRET_PATTERN = /(sk-[A-Za-z0-9_-]+|(?:api[_-]?key|token|password|secret)\s*[:=]\s*[^\s"']+)/gi;
+const ANSI_PATTERN = /[][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
+
+const sanitizeLogTail = (value: string): string =>
+  value
+    .replace(ANSI_PATTERN, '')
+    .replace(SECRET_PATTERN, '[REDACTED]')
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
+    .slice(-LOG_TAIL_MAX);
 
 class Worker {
   private running = false;
@@ -87,10 +96,10 @@ class Worker {
     try {
       const result = await adapter.run(context);
       await this.persistResult(job, result);
-    } catch (err: any) {
-      const message = String(err?.message || err);
-      console.error(`Adapter ${adapter.name} threw for agent_job ${agentJobId}`, err);
-      await this.markDead(agentJobId, job.execution_id, job.task_id, { message, details: err?.stack });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`Adapter ${adapter.name} threw for agent_job ${agentJobId}: ${message}`);
+      await this.markDead(agentJobId, job.execution_id, job.task_id, { message });
     }
   }
 
@@ -165,7 +174,7 @@ class Worker {
     const executionStatus = succeeded ? 'succeeded' : 'failed';
     const taskExecStatus = succeeded ? 'success' : 'failed';
 
-    const tail = typeof result.log_tail === 'string' ? result.log_tail.slice(-LOG_TAIL_MAX) : null;
+    const tail = typeof result.log_tail === 'string' ? sanitizeLogTail(result.log_tail) : null;
 
     await dbQuery(
       `UPDATE deo.agent_jobs
@@ -173,7 +182,7 @@ class Worker {
               output = $2,
               log_tail = CASE
                   WHEN $3::text IS NULL THEN log_tail
-                  ELSE LEFT(COALESCE(log_tail,'') || $3, $7)
+                  ELSE RIGHT(COALESCE(log_tail,'') || $3, $7)
               END,
               tokens_in = COALESCE($4, tokens_in),
               tokens_out = COALESCE($5, tokens_out),
@@ -193,7 +202,7 @@ class Worker {
       ]
     );
 
-    await dbQuery(
+    const executionUpdate = await dbQuery(
       `UPDATE deo.task_executions
           SET status = $1,
               error = $2,
@@ -204,10 +213,12 @@ class Worker {
       [executionStatus, result.error ? JSON.stringify(result.error) : null, job.execution_id]
     );
 
-    await dbQuery(
-      `UPDATE deo.tasks SET execution_status = $1, updated_at = NOW() WHERE id = $2`,
-      [taskExecStatus, job.task_id]
-    );
+    if (executionUpdate.rowCount && executionUpdate.rowCount > 0) {
+      await dbQuery(
+        `UPDATE deo.tasks SET execution_status = $1, updated_at = NOW() WHERE id = $2`,
+        [taskExecStatus, job.task_id]
+      );
+    }
   }
 
   private async markDead(agentJobId: string, executionId: string, taskId: string, error: { message: string; details?: unknown }) {
@@ -221,7 +232,7 @@ class Worker {
       [agentJobId, JSON.stringify({ error })]
     ).catch((e) => console.error('markDead agent_jobs update failed', e));
 
-    await dbQuery(
+    const executionUpdate = await dbQuery(
       `UPDATE deo.task_executions
           SET status = 'failed',
               error = $1,
@@ -230,12 +241,17 @@ class Worker {
         WHERE id = $2
           AND status NOT IN ('succeeded','failed','cancelled','needs_review')`,
       [JSON.stringify(error), executionId]
-    ).catch((e) => console.error('markDead task_executions update failed', e));
+    ).catch((e) => {
+      console.error('markDead task_executions update failed', e);
+      return null;
+    });
 
-    await dbQuery(
-      `UPDATE deo.tasks SET execution_status = 'failed', updated_at = NOW() WHERE id = $1`,
-      [taskId]
-    ).catch((e) => console.error('markDead tasks update failed', e));
+    if (executionUpdate?.rowCount && executionUpdate.rowCount > 0) {
+      await dbQuery(
+        `UPDATE deo.tasks SET execution_status = 'failed', updated_at = NOW() WHERE id = $1`,
+        [taskId]
+      ).catch((e) => console.error('markDead tasks update failed', e));
+    }
   }
 
   stop() {

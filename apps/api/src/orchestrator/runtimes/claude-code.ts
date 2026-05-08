@@ -3,6 +3,8 @@ import { RuntimeAdapter, AgentJobContext, RuntimeRunResult } from './types';
 
 const LOG_TAIL_MAX = 16384;
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
+const MIN_TIMEOUT_MS = 1000;
+const MAX_TIMEOUT_MS = 60 * 60 * 1000;
 
 const asString = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim().length > 0 ? value : undefined;
@@ -19,8 +21,21 @@ const asNumber = (value: unknown): number | undefined => {
 const clampLog = (text: string): string =>
   text.length <= LOG_TAIL_MAX ? text : text.slice(text.length - LOG_TAIL_MAX);
 
+const sanitizeLogField = (value: unknown): string =>
+  String(value ?? '')
+    .replace(/[][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g, '')
+    .replace(/[\r\n\t\x00-\x1f\x7f]/g, ' ')
+    .slice(0, 500);
+
+const resolveTimeoutMs = (ctx: AgentJobContext): number => {
+  const rawTimeout = asNumber(ctx.agent?.config?.timeout_ms) ?? asNumber(ctx.input?.timeout_ms) ?? DEFAULT_TIMEOUT_MS;
+  const timeoutMs = Math.trunc(rawTimeout);
+  if (timeoutMs < MIN_TIMEOUT_MS) return MIN_TIMEOUT_MS;
+  if (timeoutMs > MAX_TIMEOUT_MS) return MAX_TIMEOUT_MS;
+  return timeoutMs;
+};
+
 const buildPrompt = (ctx: AgentJobContext): string => {
-  const instruction = asString(ctx.input?.prompt) || asString(ctx.input?.instruction) || '';
   const parts = [
     'You are an Enterprise OS coding/runtime agent invoked from the webapp control plane.',
     '',
@@ -34,36 +49,29 @@ const buildPrompt = (ctx: AgentJobContext): string => {
     '',
     'Agent input JSON:',
     JSON.stringify(ctx.input || {}, null, 2),
+    '',
+    'Do the requested work. Be concise in final output.',
   ];
 
-  if (instruction) {
-    parts.push('', 'Additional instruction:', instruction);
-  }
-
-  parts.push('', 'Do the requested work. Be concise in final output.');
   return parts.join('\n');
 };
 
 const runClaude = (ctx: AgentJobContext): Promise<RuntimeRunResult> => {
-  const config = ctx.agent?.config || {};
-  const cli = asString(config.cli) || asString(ctx.input?.cli) || 'claude';
-  const workdir = asString(config.workdir) || asString(ctx.input?.workdir) || process.cwd();
-  const timeoutMs = asNumber(ctx.input?.timeout_ms) || asNumber(config.timeout_ms) || DEFAULT_TIMEOUT_MS;
-  const extraArgs = Array.isArray(config.args) ? config.args.filter((arg): arg is string => typeof arg === 'string') : [];
+  const workdir = asString(ctx.agent?.config?.workdir) || process.cwd();
+  const timeoutMs = resolveTimeoutMs(ctx);
   const prompt = buildPrompt(ctx);
-  const args = extraArgs.length > 0
-    ? [...extraArgs, prompt]
-    : ['--permission-mode', 'bypassPermissions', '--print', prompt];
+  const args = ['--permission-mode', 'bypassPermissions', '--print', prompt];
 
   return new Promise((resolve) => {
     const startedAt = Date.now();
     let stdout = '';
     let stderr = '';
     let timedOut = false;
+    let settled = false;
 
-    const child = spawn(cli, args, {
+    const child = spawn('claude', args, {
       cwd: workdir,
-      shell: process.platform === 'win32',
+      shell: false,
       env: process.env,
       windowsHide: true,
     });
@@ -83,17 +91,21 @@ const runClaude = (ctx: AgentJobContext): Promise<RuntimeRunResult> => {
     });
 
     child.on('error', (error) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       const message = `Failed to start Claude Code CLI: ${error.message}`;
       resolve({
         status: 'failed',
-        error: { message, details: { cli, workdir } },
-        output: { cli, workdir, error: message },
+        error: { message, details: { workdir } },
+        output: { stdout, stderr, exit_code: null, error: message },
         log_tail: clampLog([stdout, stderr, message].filter(Boolean).join('\n')),
       });
     });
 
     child.on('close', (code, signal) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       const durationMs = Date.now() - startedAt;
       const exitCode = code ?? null;
@@ -107,18 +119,16 @@ const runClaude = (ctx: AgentJobContext): Promise<RuntimeRunResult> => {
       resolve({
         status: success ? 'succeeded' : 'failed',
         output: {
-          cli,
-          workdir,
+          stdout,
+          stderr,
           exit_code: exitCode,
           signal,
           duration_ms: durationMs,
-          stdout,
-          stderr,
         },
         error: message ? { message, details: { exit_code: exitCode, signal, timed_out: timedOut } } : null,
         log_tail: clampLog([
-          `[claude-code] agent_job=${ctx.id} task="${ctx.task.title}"`,
-          `[claude-code] cwd=${workdir}`,
+          `[claude-code] agent_job=${sanitizeLogField(ctx.id)} task="${sanitizeLogField(ctx.task.title)}"`,
+          `[claude-code] cwd=${sanitizeLogField(workdir)} timeout_ms=${timeoutMs}`,
           stdout,
           stderr,
           message || '',
