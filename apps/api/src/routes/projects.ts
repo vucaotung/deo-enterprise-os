@@ -67,7 +67,7 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
           SUM(CASE WHEN ${TASK_WORKFLOW_EXPR} = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_tasks,
           SUM(CASE WHEN ${TASK_WORKFLOW_EXPR} = 'completed' THEN 1 ELSE 0 END) AS completed_tasks,
           SUM(CASE WHEN ${TASK_WORKFLOW_EXPR} = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_tasks,
-          COALESCE(ROUND(AVG(COALESCE(t.progress_percentage, CASE WHEN ${TASK_WORKFLOW_EXPR} = 'completed' THEN 100 ELSE 0 END))), 0) AS progress_percent
+          COALESCE(ROUND(AVG(CASE WHEN ${TASK_WORKFLOW_EXPR} = 'completed' THEN 100 ELSE 0 END)), 0) AS progress_percent
         FROM deo.tasks t
         WHERE t.project_id = p.id
       ) task_stats ON true
@@ -122,7 +122,7 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
           SUM(CASE WHEN ${TASK_WORKFLOW_EXPR} = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_tasks,
           SUM(CASE WHEN ${TASK_WORKFLOW_EXPR} = 'completed' THEN 1 ELSE 0 END) AS completed_tasks,
           SUM(CASE WHEN ${TASK_WORKFLOW_EXPR} = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_tasks,
-          COALESCE(ROUND(AVG(COALESCE(t.progress_percentage, CASE WHEN ${TASK_WORKFLOW_EXPR} = 'completed' THEN 100 ELSE 0 END))), 0) AS progress_percent
+          COALESCE(ROUND(AVG(CASE WHEN ${TASK_WORKFLOW_EXPR} = 'completed' THEN 100 ELSE 0 END)), 0) AS progress_percent
         FROM deo.tasks t
         WHERE t.project_id = p.id
       ) task_stats ON true
