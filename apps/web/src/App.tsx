@@ -6,6 +6,7 @@ import { Login } from '@/pages/Login';
 import { Dashboard } from '@/pages/Dashboard';
 import { Chat } from '@/pages/Chat';
 import { Tasks } from '@/pages/Tasks';
+import { TaskDetail } from '@/pages/TaskDetail';
 import { Projects } from '@/pages/Projects';
 import { ProjectDetail } from '@/pages/ProjectDetail';
 import { ProjectTasks } from '@/pages/ProjectTasks';
@@ -72,6 +73,7 @@ const AppRoutes = () => {
         <Route path="/" element={<Dashboard />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/tasks" element={<Tasks />} />
+        <Route path="/tasks/:id" element={<TaskDetail />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
         <Route path="/projects/:id/tasks" element={<ProjectTasks />} />

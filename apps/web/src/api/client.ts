@@ -1,5 +1,16 @@
 import axios from 'axios';
-import type { Task, Expense, Client, DashboardSummary, LoginResponse, Project, Agent } from '../types';
+import type {
+  Task,
+  Expense,
+  Client,
+  DashboardSummary,
+  LoginResponse,
+  Project,
+  Agent,
+  TaskExecutionListRow,
+  AgentJob,
+  AgentJobQueueState,
+} from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -236,5 +247,50 @@ export const updateClient = async (id: string, updates: Partial<Client>): Promis
 export const deleteClient = async (id: string): Promise<void> => {
   await api.delete(`/clients/${id}`);
 };
+
+// ============================================================
+// Task executions + agent jobs (PR3 orchestration UI)
+// ============================================================
+
+export const getTask = async (id: string): Promise<Task> => {
+  const { data } = await api.get(`/tasks/${id}`);
+  return normalizeTask(data);
+};
+
+export const getTaskExecutions = async (taskId: string): Promise<TaskExecutionListRow[]> => {
+  const { data } = await api.get(`/tasks/${taskId}/executions`);
+  return unwrapList<TaskExecutionListRow>(data);
+};
+
+export const createTaskExecution = async (
+  taskId: string,
+  body: { runtime_type?: string; agent_id?: string; input?: Record<string, unknown>; trigger_reason?: string } = {}
+): Promise<{ execution: TaskExecutionListRow; agentJob: AgentJob }> => {
+  const { data } = await api.post(`/tasks/${taskId}/executions`, body);
+  return data;
+};
+
+export const getAgentJob = async (id: string): Promise<AgentJob> => {
+  const { data } = await api.get(`/agent-jobs/${id}`);
+  return data;
+};
+
+export const patchAgentJobStatus = async (
+  id: string,
+  body: { queue_state?: AgentJobQueueState; output?: unknown; error?: unknown }
+): Promise<AgentJob> => {
+  const { data } = await api.patch(`/agent-jobs/${id}/status`, body);
+  return data;
+};
+
+export const retryAgentJob = async (
+  id: string
+): Promise<{ execution: TaskExecutionListRow; agentJob: AgentJob }> => {
+  const { data } = await api.post(`/agent-jobs/${id}/retry`);
+  return data;
+};
+
+export const cancelAgentJob = async (id: string): Promise<AgentJob> =>
+  patchAgentJobStatus(id, { queue_state: 'cancelled' });
 
 export default api;

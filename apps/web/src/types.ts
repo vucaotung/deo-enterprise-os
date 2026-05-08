@@ -106,3 +106,63 @@ export interface LoginResponse {
   token: string;
   user: User;
 }
+
+export type TaskExecutionStatus =
+  | 'pending'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+  | 'needs_review';
+
+export type AgentJobQueueState =
+  | 'queued'
+  | 'claimed'
+  | 'running'
+  | 'done'
+  | 'dead'
+  | 'cancelled';
+
+export interface TaskExecutionListRow {
+  id: string;
+  task_id: string;
+  parent_execution_id?: string | null;
+  attempt_number: number;
+  status: TaskExecutionStatus;
+  trigger_reason?: string | null;
+  triggered_by?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  agent_job_id?: string | null;
+  agent_job_queue_state?: AgentJobQueueState | null;
+  agent_job_runtime_type?: string | null;
+  agent_job_agent_id?: string | null;
+  agent_job_tokens_in?: number | null;
+  agent_job_tokens_out?: number | null;
+  agent_job_cost_usd?: number | null;
+}
+
+export interface AgentJob {
+  id: string;
+  execution_id: string;
+  sequence_index: number;
+  agent_id?: string | null;
+  runtime_type: string;
+  queue_name?: string | null;
+  queue_state: AgentJobQueueState;
+  input?: Record<string, unknown> | null;
+  output?: Record<string, unknown> | null;
+  log_tail?: string | null;
+  logs_url?: string | null;
+  tokens_in?: number | null;
+  tokens_out?: number | null;
+  cost_usd?: number | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  task_id?: string;
+  task_title?: string;
+}
