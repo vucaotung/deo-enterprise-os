@@ -3,6 +3,7 @@ import { query as dbQuery } from '../db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { AuditedRequest } from '../middleware/audit';
 import { v4 as uuidv4 } from 'uuid';
+import { createExecutionAndEnqueue } from './agent-jobs';
 
 const router = Router();
 
@@ -412,6 +413,98 @@ router.post('/:id/request-review', authMiddleware, async (req: AuditedRequest, r
   } catch (error) {
     console.error('Request review error', error);
     res.status(500).json({ error: 'Failed to request review' });
+  }
+});
+
+// ============================================================
+// Task executions: per-attempt control plane
+// ============================================================
+
+router.get('/:id/executions', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const taskId = req.params.id;
+
+    const taskResult = await dbQuery(
+      'SELECT id FROM deo.tasks WHERE id = $1 AND company_id = $2',
+      [taskId, req.user.company_id]
+    );
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const result = await dbQuery(
+      `SELECT te.*,
+              aj.id AS agent_job_id,
+              aj.queue_state AS agent_job_queue_state,
+              aj.runtime_type AS agent_job_runtime_type,
+              aj.agent_id AS agent_job_agent_id,
+              aj.tokens_in AS agent_job_tokens_in,
+              aj.tokens_out AS agent_job_tokens_out,
+              aj.cost_usd AS agent_job_cost_usd
+         FROM deo.task_executions te
+         LEFT JOIN LATERAL (
+           SELECT * FROM deo.agent_jobs
+            WHERE execution_id = te.id
+            ORDER BY sequence_index ASC, created_at ASC LIMIT 1
+         ) aj ON true
+         WHERE te.task_id = $1
+         ORDER BY te.attempt_number DESC`,
+      [taskId]
+    );
+
+    res.json({ data: result.rows });
+  } catch (error) {
+    console.error('List executions error', error);
+    res.status(500).json({ error: 'Failed to fetch executions' });
+  }
+});
+
+router.post('/:id/executions', authMiddleware, async (req: AuditedRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const taskId = req.params.id;
+    const { runtime_type, agent_id, input, trigger_reason } = req.body;
+
+    const taskResult = await dbQuery(
+      'SELECT id FROM deo.tasks WHERE id = $1 AND company_id = $2',
+      [taskId, req.user.company_id]
+    );
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const created = await createExecutionAndEnqueue({
+      taskId,
+      companyId: req.user.company_id,
+      triggeredBy: req.user.id,
+      triggerReason: trigger_reason || 'manual',
+      runtimeType: runtime_type,
+      agentId: agent_id,
+      input,
+    });
+
+    req.auditData = {
+      entity_type: 'task_execution',
+      entity_id: created.execution.id,
+      new_values: {
+        task_id: taskId,
+        agent_job_id: created.agentJob.id,
+        attempt_number: created.execution.attempt_number,
+        trigger_reason: created.execution.trigger_reason,
+      },
+    };
+
+    res.status(201).json(created);
+  } catch (error) {
+    console.error('Create execution error', error);
+    res.status(500).json({ error: 'Failed to create execution' });
   }
 });
 

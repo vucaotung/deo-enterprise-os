@@ -2,7 +2,6 @@ import { Router, Response } from 'express';
 import { query as dbQuery } from '../db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { AuditedRequest } from '../middleware/audit';
-import { v4 as uuidv4 } from 'uuid';
 import * as redis from '../redis';
 
 const router = Router();
@@ -16,27 +15,55 @@ const getPaginationParams = (query: any) => {
 
 router.post('/register', async (req: any, res: Response) => {
   try {
-    const { name, agent_type, endpoint, capabilities } = req.body;
+    const {
+      name,
+      display_name,
+      type,
+      runtime_type,
+      capabilities,
+      config,
+      heartbeat_interval_s,
+    } = req.body;
 
-    if (!name || !agent_type || !endpoint) {
-      return res.status(400).json({ error: 'Name, agent_type, and endpoint are required' });
+    if (!name || !display_name) {
+      return res.status(400).json({ error: 'name and display_name are required' });
     }
 
-    const agentId = uuidv4();
-    const companyId = req.body.company_id || 'system';
-
-    await dbQuery(
-      `INSERT INTO deo.agents (id, company_id, name, agent_type, endpoint, status, capabilities, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
-      [agentId, companyId, name, agent_type, endpoint, 'online', JSON.stringify(capabilities || [])]
+    const result = await dbQuery(
+      `INSERT INTO deo.agents
+         (name, display_name, type, status, runtime_type, capabilities, config, heartbeat_interval_s, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+       ON CONFLICT (name) DO UPDATE SET
+         display_name = EXCLUDED.display_name,
+         type = EXCLUDED.type,
+         status = EXCLUDED.status,
+         runtime_type = COALESCE(EXCLUDED.runtime_type, deo.agents.runtime_type),
+         capabilities = EXCLUDED.capabilities,
+         config = COALESCE(EXCLUDED.config, deo.agents.config),
+         heartbeat_interval_s = COALESCE(EXCLUDED.heartbeat_interval_s, deo.agents.heartbeat_interval_s),
+         updated_at = NOW()
+       RETURNING *`,
+      [
+        name,
+        display_name,
+        type || 'ai',
+        'online',
+        runtime_type || null,
+        JSON.stringify(capabilities || []),
+        config ? JSON.stringify(config) : null,
+        heartbeat_interval_s || null,
+      ]
     );
 
-    const agentKey = `agent:${agentId}`;
-    await redis.set(agentKey, JSON.stringify({ id: agentId, status: 'online', last_heartbeat: new Date().toISOString() }), { EX: 3600 });
+    const agent = result.rows[0];
+    const agentKey = `agent:${agent.id}`;
+    await redis.set(
+      agentKey,
+      JSON.stringify({ id: agent.id, status: 'online', last_heartbeat: new Date().toISOString() }),
+      { EX: 3600 }
+    );
 
-    const result = await dbQuery('SELECT * FROM deo.agents WHERE id = $1', [agentId]);
-
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(agent);
   } catch (error) {
     console.error('Register agent error', error);
     res.status(500).json({ error: 'Failed to register agent' });
@@ -47,7 +74,7 @@ router.post('/:id/heartbeat', async (req: any, res: Response) => {
   try {
     const agentId = req.params.id;
 
-    const result = await dbQuery('SELECT * FROM deo.agents WHERE id = $1', [agentId]);
+    const result = await dbQuery('SELECT id FROM deo.agents WHERE id = $1', [agentId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Agent not found' });
@@ -59,7 +86,11 @@ router.post('/:id/heartbeat', async (req: any, res: Response) => {
     );
 
     const agentKey = `agent:${agentId}`;
-    await redis.set(agentKey, JSON.stringify({ id: agentId, status: 'online', last_heartbeat: new Date().toISOString() }), { EX: 3600 });
+    await redis.set(
+      agentKey,
+      JSON.stringify({ id: agentId, status: 'online', last_heartbeat: new Date().toISOString() }),
+      { EX: 3600 }
+    );
 
     res.json({ status: 'ok' });
   } catch (error) {
@@ -75,7 +106,7 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     }
 
     const { limit, offset } = getPaginationParams(req.query);
-    const { status } = req.query;
+    const { status, runtime_type } = req.query;
 
     let queryStr = 'SELECT * FROM deo.agents WHERE 1 = 1';
     const params: any[] = [];
@@ -84,8 +115,12 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
       queryStr += ` AND status = $${params.length + 1}`;
       params.push(status);
     }
+    if (runtime_type) {
+      queryStr += ` AND runtime_type = $${params.length + 1}`;
+      params.push(runtime_type);
+    }
 
-    queryStr += ` ORDER BY last_heartbeat DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    queryStr += ` ORDER BY last_heartbeat DESC NULLS LAST LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
 
     const result = await dbQuery(queryStr, params);
@@ -106,10 +141,7 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const result = await dbQuery(
-      'SELECT * FROM deo.agents WHERE id = $1',
-      [req.params.id]
-    );
+    const result = await dbQuery('SELECT * FROM deo.agents WHERE id = $1', [req.params.id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Agent not found' });
@@ -136,26 +168,38 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
     }
 
     const oldAgent = oldResult.rows[0];
-    const { name, endpoint, status, capabilities } = req.body;
+    const { display_name, type, status, runtime_type, capabilities, config, heartbeat_interval_s } = req.body;
 
     const updates: string[] = [];
     const values: any[] = [];
 
-    if (name !== undefined) {
-      updates.push(`name = $${values.length + 1}`);
-      values.push(name);
+    if (display_name !== undefined) {
+      updates.push(`display_name = $${values.length + 1}`);
+      values.push(display_name);
     }
-    if (endpoint !== undefined) {
-      updates.push(`endpoint = $${values.length + 1}`);
-      values.push(endpoint);
+    if (type !== undefined) {
+      updates.push(`type = $${values.length + 1}`);
+      values.push(type);
     }
     if (status !== undefined) {
       updates.push(`status = $${values.length + 1}`);
       values.push(status);
     }
+    if (runtime_type !== undefined) {
+      updates.push(`runtime_type = $${values.length + 1}`);
+      values.push(runtime_type);
+    }
     if (capabilities !== undefined) {
       updates.push(`capabilities = $${values.length + 1}`);
       values.push(JSON.stringify(capabilities));
+    }
+    if (config !== undefined) {
+      updates.push(`config = $${values.length + 1}`);
+      values.push(JSON.stringify(config));
+    }
+    if (heartbeat_interval_s !== undefined) {
+      updates.push(`heartbeat_interval_s = $${values.length + 1}`);
+      values.push(heartbeat_interval_s);
     }
 
     if (updates.length === 0) {
@@ -183,36 +227,48 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
   }
 });
 
+// Legacy: agents pulled tasks directly. New flow goes through agent_jobs queue
+// (see worker.ts and POST /api/tasks/:id/executions). This endpoint claims one
+// queued agent_job for the calling agent if one is available for its runtime.
 router.get('/:id/pull', async (req: any, res: Response) => {
   try {
     const agentId = req.params.id;
 
-    const result = await dbQuery('SELECT * FROM deo.agents WHERE id = $1', [agentId]);
+    const agentResult = await dbQuery('SELECT * FROM deo.agents WHERE id = $1', [agentId]);
 
-    if (result.rows.length === 0) {
+    if (agentResult.rows.length === 0) {
       return res.status(404).json({ error: 'Agent not found' });
     }
 
-    const tasksResult = await dbQuery(
-      `SELECT * FROM deo.tasks WHERE company_id = $1 AND status = 'open' AND (assigned_to IS NULL OR assigned_to = $2) ORDER BY created_at ASC LIMIT 1`,
-      [result.rows[0].company_id, agentId]
+    const agent = agentResult.rows[0];
+
+    const claimResult = await dbQuery(
+      `UPDATE deo.agent_jobs aj
+         SET queue_state = 'claimed',
+             agent_id = $1,
+             started_at = COALESCE(aj.started_at, NOW()),
+             updated_at = NOW()
+       WHERE aj.id = (
+         SELECT id FROM deo.agent_jobs
+          WHERE queue_state = 'queued'
+            AND runtime_type = $2
+            AND (agent_id IS NULL OR agent_id = $1)
+          ORDER BY created_at ASC
+          LIMIT 1
+          FOR UPDATE SKIP LOCKED
+       )
+       RETURNING *`,
+      [agentId, agent.runtime_type || 'openclaw']
     );
 
-    if (tasksResult.rows.length === 0) {
-      return res.json({ task: null });
+    if (claimResult.rows.length === 0) {
+      return res.json({ agent_job: null });
     }
 
-    const task = tasksResult.rows[0];
-
-    await dbQuery(
-      'UPDATE deo.tasks SET status = $1, assigned_to = $2, updated_at = NOW() WHERE id = $3',
-      ['assigned', agentId, task.id]
-    );
-
-    res.json({ task: { ...task, status: 'assigned', assigned_to: agentId } });
+    res.json({ agent_job: claimResult.rows[0] });
   } catch (error) {
-    console.error('Pull task error', error);
-    res.status(500).json({ error: 'Failed to pull tasks' });
+    console.error('Pull agent job error', error);
+    res.status(500).json({ error: 'Failed to pull agent job' });
   }
 });
 
