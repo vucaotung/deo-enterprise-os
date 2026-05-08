@@ -187,7 +187,7 @@ router.patch('/jobs/:id/status', async (req: ServiceRequest, res: Response) => {
               tokens_in = COALESCE($4, tokens_in),
               tokens_out = COALESCE($5, tokens_out),
               cost_usd = COALESCE($6, cost_usd),
-              finished_at = CASE WHEN $1 IN ('done','dead','cancelled') THEN COALESCE(finished_at, NOW()) ELSE finished_at END,
+              finished_at = CASE WHEN $1::text IN ('done','dead','cancelled') THEN COALESCE(finished_at, NOW()) ELSE finished_at END,
               updated_at = NOW()
         WHERE id = $7
         RETURNING *`,
