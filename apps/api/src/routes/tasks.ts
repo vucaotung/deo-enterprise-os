@@ -136,9 +136,10 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
+    const companyId = req.user.company_id || process.env.ENTERPRISE_OS_MCP_COMPANY_ID || 'b1f6384d-4ac0-40f1-91b9-95b8cfeb0712';
     const result = await dbQuery(
       `SELECT ${taskSelectExpr} FROM deo.tasks t LEFT JOIN deo.projects p ON p.id = t.project_id LEFT JOIN deo.users u ON u.id = t.assigned_to LEFT JOIN deo.agents a ON a.id = COALESCE(t.agent_id, t.assigned_to) WHERE t.id = $1 AND t.company_id = $2`,
-      [req.params.id, req.user.company_id]
+      [req.params.id, companyId]
     );
 
     if (result.rows.length === 0) {
@@ -159,7 +160,8 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
     }
 
     const taskId = req.params.id;
-    const oldResult = await dbQuery('SELECT * FROM deo.tasks WHERE id = $1 AND company_id = $2', [taskId, req.user.company_id]);
+    const companyId = req.user.company_id || process.env.ENTERPRISE_OS_MCP_COMPANY_ID || 'b1f6384d-4ac0-40f1-91b9-95b8cfeb0712';
+    const oldResult = await dbQuery('SELECT * FROM deo.tasks WHERE id = $1 AND company_id = $2', [taskId, companyId]);
 
     if (oldResult.rows.length === 0) {
       return res.status(404).json({ error: 'Task not found' });
@@ -208,13 +210,13 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
     }
 
     updates.push(`updated_at = NOW()`);
-    values.push(taskId, req.user.company_id);
+    values.push(taskId, companyId);
 
     const queryStr = `UPDATE deo.tasks SET ${updates.join(', ')} WHERE id = $${values.length - 1} AND company_id = $${values.length} RETURNING *`;
     const result = await dbQuery(queryStr, values);
     const taskResult = await dbQuery(
       `SELECT ${taskSelectExpr} FROM deo.tasks t LEFT JOIN deo.projects p ON p.id = t.project_id LEFT JOIN deo.users u ON u.id = t.assigned_to LEFT JOIN deo.agents a ON a.id = COALESCE(t.agent_id, t.assigned_to) WHERE t.id = $1 AND t.company_id = $2`,
-      [taskId, req.user.company_id]
+      [taskId, companyId]
     );
 
     req.auditData = {
