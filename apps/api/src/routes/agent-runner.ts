@@ -221,7 +221,8 @@ router.patch('/jobs/:id/status', async (req: ServiceRequest, res: Response) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Agent runner status error', error);
-    res.status(500).json({ error: 'Failed to update agent job status' });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: 'Failed to update agent job status', message });
   }
 });
 
