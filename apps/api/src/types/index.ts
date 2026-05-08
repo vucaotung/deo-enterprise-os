@@ -210,14 +210,69 @@ export interface Interaction {
 
 export interface Agent {
   id: string;
-  company_id: string;
   name: string;
-  agent_type: string;
-  endpoint: string;
+  display_name: string;
+  type: string;
   status: 'online' | 'offline' | 'busy' | 'idle';
-  last_heartbeat: Date;
+  runtime_type?: string;
   capabilities: string[];
-  metadata?: unknown;
+  config?: Record<string, unknown>;
+  last_heartbeat?: Date;
+  heartbeat_interval_s?: number;
+  metadata?: Record<string, unknown>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export type TaskExecutionStatus =
+  | 'pending'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+  | 'needs_review';
+
+export interface TaskExecution {
+  id: string;
+  task_id: string;
+  parent_execution_id?: string;
+  attempt_number: number;
+  status: TaskExecutionStatus;
+  triggered_by?: string;
+  trigger_reason?: string;
+  result?: Record<string, unknown>;
+  error?: Record<string, unknown>;
+  started_at?: Date;
+  finished_at?: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export type AgentJobQueueState =
+  | 'queued'
+  | 'claimed'
+  | 'running'
+  | 'done'
+  | 'dead'
+  | 'cancelled';
+
+export interface AgentJob {
+  id: string;
+  execution_id: string;
+  sequence_index: number;
+  agent_id?: string;
+  runtime_type: string;
+  queue_name?: string;
+  queue_state: AgentJobQueueState;
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
+  logs_url?: string;
+  log_tail?: string;
+  tokens_in?: number;
+  tokens_out?: number;
+  cost_usd?: number;
+  started_at?: Date;
+  finished_at?: Date;
   created_at: Date;
   updated_at: Date;
 }
