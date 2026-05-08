@@ -31,14 +31,22 @@ const normalizeIncomingStatus = (status?: string) => {
   }
 };
 
-const workflowStatusExpr = `COALESCE(workflow_status,
+const workflowStatusExpr = `COALESCE(t.workflow_status,
   CASE
-    WHEN status = 'completed' THEN 'completed'
-    WHEN status = 'in_progress' THEN 'in_progress'
-    WHEN status IN ('failed', 'cancelled') THEN 'cancelled'
+    WHEN t.status = 'completed' THEN 'completed'
+    WHEN t.status = 'in_progress' THEN 'in_progress'
+    WHEN t.status IN ('failed', 'cancelled') THEN 'cancelled'
     ELSE 'todo'
   END
 )`;
+
+const taskSelectExpr = `
+  t.*,
+  ${workflowStatusExpr} AS workflow_status_normalized,
+  p.name AS project_name,
+  COALESCE(u.name, u.email, a.display_name) AS assignee_name,
+  a.display_name AS agent_display_name
+`;
 
 router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
@@ -51,16 +59,16 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     const requestedStatus = normalizeIncomingStatus(req.query.status as string | undefined);
     const companyId = req.user.company_id || process.env.ENTERPRISE_OS_MCP_COMPANY_ID || 'b1f6384d-4ac0-40f1-91b9-95b8cfeb0712';
 
-    let queryStr = `SELECT *, ${workflowStatusExpr} AS workflow_status_normalized FROM deo.tasks WHERE company_id = $1`;
+    let queryStr = `SELECT ${taskSelectExpr} FROM deo.tasks t LEFT JOIN deo.projects p ON p.id = t.project_id LEFT JOIN deo.users u ON u.id = t.assigned_to LEFT JOIN deo.agents a ON a.id = COALESCE(t.agent_id, t.assigned_to) WHERE t.company_id = $1`;
     const params: any[] = [companyId];
 
     if (project_id) {
-      queryStr += ` AND project_id = $${params.length + 1}`;
+      queryStr += ` AND t.project_id = $${params.length + 1}`;
       params.push(project_id);
     }
 
     if (assigned_to) {
-      queryStr += ` AND assigned_to = $${params.length + 1}`;
+      queryStr += ` AND t.assigned_to = $${params.length + 1}`;
       params.push(assigned_to);
     }
 
@@ -69,7 +77,7 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
       params.push(requestedStatus);
     }
 
-    queryStr += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    queryStr += ` ORDER BY t.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
 
     const result = await dbQuery(queryStr, params);
@@ -99,8 +107,8 @@ router.post('/', authMiddleware, async (req: AuditedRequest, res: Response) => {
     const taskId = uuidv4();
 
     await dbQuery(
-      `INSERT INTO deo.tasks (id, company_id, project_id, title, description, status, workflow_status, priority, created_by, assigned_to, due_date, estimated_hours, progress_percentage, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0, NOW(), NOW())`,
+      `INSERT INTO deo.tasks (id, company_id, project_id, title, description, status, workflow_status, priority, created_by, assigned_to, due_date, estimated_hours, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())`,
       [taskId, req.user.company_id, project_id || null, title, description || null, 'todo', 'todo', priority || 'medium', req.user.id, assigned_to || null, due_date || null, estimated_hours || null]
     );
 
@@ -110,7 +118,10 @@ router.post('/', authMiddleware, async (req: AuditedRequest, res: Response) => {
       new_values: { title, description, project_id, priority, workflow_status: 'todo' },
     };
 
-    const result = await dbQuery(`SELECT *, ${workflowStatusExpr} AS workflow_status_normalized FROM deo.tasks WHERE id = $1`, [taskId]);
+    const result = await dbQuery(
+      `SELECT ${taskSelectExpr} FROM deo.tasks t LEFT JOIN deo.projects p ON p.id = t.project_id LEFT JOIN deo.users u ON u.id = t.assigned_to LEFT JOIN deo.agents a ON a.id = COALESCE(t.agent_id, t.assigned_to) WHERE t.id = $1`,
+      [taskId]
+    );
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -126,7 +137,7 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     }
 
     const result = await dbQuery(
-      `SELECT *, ${workflowStatusExpr} AS workflow_status_normalized FROM deo.tasks WHERE id = $1 AND company_id = $2`,
+      `SELECT ${taskSelectExpr} FROM deo.tasks t LEFT JOIN deo.projects p ON p.id = t.project_id LEFT JOIN deo.users u ON u.id = t.assigned_to LEFT JOIN deo.agents a ON a.id = COALESCE(t.agent_id, t.assigned_to) WHERE t.id = $1 AND t.company_id = $2`,
       [req.params.id, req.user.company_id]
     );
 
@@ -155,7 +166,7 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
     }
 
     const oldTask = oldResult.rows[0];
-    const { title, description, status, priority, assigned_to, due_date, progress_percentage, project_id } = req.body;
+    const { title, description, status, priority, assigned_to, due_date, project_id } = req.body;
 
     const updates: string[] = [];
     const values: any[] = [];
@@ -184,11 +195,6 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
       updates.push(`project_id = $${values.length + 1}`);
       values.push(project_id);
     }
-    if (progress_percentage !== undefined) {
-      updates.push(`progress_percentage = $${values.length + 1}`);
-      values.push(progress_percentage);
-    }
-
     const normalizedStatus = normalizeIncomingStatus(status);
     if (normalizedStatus !== undefined) {
       updates.push(`status = $${values.length + 1}`);
@@ -206,6 +212,10 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
 
     const queryStr = `UPDATE deo.tasks SET ${updates.join(', ')} WHERE id = $${values.length - 1} AND company_id = $${values.length} RETURNING *`;
     const result = await dbQuery(queryStr, values);
+    const taskResult = await dbQuery(
+      `SELECT ${taskSelectExpr} FROM deo.tasks t LEFT JOIN deo.projects p ON p.id = t.project_id LEFT JOIN deo.users u ON u.id = t.assigned_to LEFT JOIN deo.agents a ON a.id = COALESCE(t.agent_id, t.assigned_to) WHERE t.id = $1 AND t.company_id = $2`,
+      [taskId, req.user.company_id]
+    );
 
     req.auditData = {
       entity_type: 'task',
@@ -214,7 +224,7 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
       new_values: result.rows[0],
     };
 
-    res.json(result.rows[0]);
+    res.json(taskResult.rows[0]);
   } catch (error) {
     console.error('Update task error', error);
     res.status(500).json({ error: 'Failed to update task' });
@@ -287,16 +297,12 @@ router.post('/:id/progress', authMiddleware, async (req: AuditedRequest, res: Re
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const { progress_percentage, notes } = req.body;
+    const { notes } = req.body;
     const taskId = req.params.id;
 
-    if (progress_percentage === undefined) {
-      return res.status(400).json({ error: 'Progress percentage is required' });
-    }
-
     const result = await dbQuery(
-      `UPDATE deo.tasks SET status = $1, workflow_status = $2, progress_percentage = $3, updated_at = NOW() WHERE id = $4 AND company_id = $5 RETURNING *`,
-      ['in_progress', 'in_progress', progress_percentage, taskId, req.user.company_id]
+      `UPDATE deo.tasks SET status = $1, workflow_status = $2, updated_at = NOW() WHERE id = $3 AND company_id = $4 RETURNING *`,
+      ['in_progress', 'in_progress', taskId, req.user.company_id]
     );
 
     if (result.rows.length === 0) {
@@ -306,7 +312,7 @@ router.post('/:id/progress', authMiddleware, async (req: AuditedRequest, res: Re
     req.auditData = {
       entity_type: 'task',
       entity_id: taskId,
-      new_values: { progress_percentage, notes, status: 'in_progress' },
+      new_values: { notes, status: 'in_progress' },
     };
 
     res.json(result.rows[0]);
@@ -325,7 +331,7 @@ router.post('/:id/complete', authMiddleware, async (req: AuditedRequest, res: Re
     const taskId = req.params.id;
 
     const result = await dbQuery(
-      `UPDATE deo.tasks SET status = $1, workflow_status = $2, progress_percentage = 100, updated_at = NOW() WHERE id = $3 AND company_id = $4 RETURNING *`,
+      `UPDATE deo.tasks SET status = $1, workflow_status = $2, updated_at = NOW() WHERE id = $3 AND company_id = $4 RETURNING *`,
       ['completed', 'completed', taskId, req.user.company_id]
     );
 

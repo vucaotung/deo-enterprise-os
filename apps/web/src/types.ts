@@ -11,7 +11,9 @@ export interface Task {
   status: 'todo' | 'in_progress' | 'completed' | 'cancelled';
   priority?: 'low' | 'medium' | 'high';
   project_id?: string;
+  project_name?: string;
   assigned_to?: string;
+  assignee_name?: string;
   due_date?: string;
   created_at: string;
   updated_at: string;
@@ -85,6 +87,19 @@ export interface DashboardSummary {
   clientCount: number;
   taskCountByStatus: Record<string, number>;
   alerts?: Array<{ type: string; message: string }>;
+}
+
+export interface Agent {
+  id: string;
+  name: string;
+  emoji: string;
+  capabilities: string[];
+  status: 'online' | 'sleeping' | 'offline';
+  active_tasks: number;
+  completed_today: number;
+  tokens_used: number;
+  last_heartbeat: string;
+  company_id: string;
 }
 
 export interface LoginResponse {

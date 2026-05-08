@@ -102,7 +102,9 @@ const normalizeTask = (task: any): Task => ({
   status: normalizeTaskStatus(task.workflow_status || task.status),
   priority: task.priority === 'urgent' ? 'high' : task.priority || 'medium',
   project_id: task.project_id ? String(task.project_id) : undefined,
+  project_name: task.project_name || task.project?.name || undefined,
   assigned_to: task.assigned_to ? String(task.assigned_to) : undefined,
+  assignee_name: task.assignee_name || task.assignee?.name || task.agent_display_name || undefined,
   due_date: task.due_date || undefined,
   created_at: task.created_at,
   updated_at: task.updated_at,
@@ -129,7 +131,7 @@ export const getTasks = async (filters?: {
   company_id?: string;
   project_id?: string;
   status?: string;
-  assignee_id?: string;
+  assigned_to?: string;
 }): Promise<Task[]> => {
   const { data } = await api.get('/tasks', { params: filters });
   return unwrapList<any>(data).map(normalizeTask);

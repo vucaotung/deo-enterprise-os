@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { ListFilter, Plus, Rows3, SquareKanban } from 'lucide-react';
 import type { Task } from '@/types';
-import { getTasks } from '@/api/client';
+import { getTasks, updateTask } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { SlidePanel } from '@/components/SlidePanel';
 import { Modal } from '@/components/Modal';
@@ -120,10 +120,23 @@ const priorityVariantMap: Record<NonNullable<Task['priority']>, 'default' | 'war
   high: 'error',
 };
 
+const getProjectLabel = (task: Task) => task.project_name || task.project_id || 'No project';
+const getAssigneeLabel = (task: Task) => task.assignee_name || task.assigned_to || 'Chưa gán';
+
 export const Tasks = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editForm, setEditForm] = useState<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'due_date'>>({
+    title: '',
+    description: '',
+    status: 'todo',
+    priority: 'medium',
+    due_date: '',
+  });
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | Task['status']>('all');
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -174,6 +187,45 @@ export const Tasks = () => {
 
   const handleAddTask = () => {
     setShowAddModal(false);
+  };
+
+  const openEditModal = (task: Task) => {
+    setEditingTask(task);
+    setEditForm({
+      title: task.title,
+      description: task.description || '',
+      status: task.status,
+      priority: task.priority || 'medium',
+      due_date: task.due_date ? task.due_date.slice(0, 10) : '',
+    });
+    setEditError(null);
+  };
+
+  const handleEditTask = async () => {
+    if (!editingTask) return;
+    if (!editForm.title.trim()) {
+      setEditError('Tiêu đề là bắt buộc.');
+      return;
+    }
+
+    try {
+      setIsSavingEdit(true);
+      setEditError(null);
+      const updatedTask = await updateTask(editingTask.id, {
+        title: editForm.title.trim(),
+        description: editForm.description?.trim() || undefined,
+        status: editForm.status,
+        priority: editForm.priority,
+        due_date: editForm.due_date || undefined,
+      });
+      setTasks((currentTasks) => currentTasks.map((task) => (task.id === updatedTask.id ? updatedTask : task)));
+      setSelectedTask(updatedTask);
+      setEditingTask(null);
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : 'Không thể cập nhật công việc.');
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   return (
@@ -303,8 +355,8 @@ export const Tasks = () => {
                         <p className="font-medium text-slate-900">{task.title}</p>
                         {task.description && <p className="text-sm text-slate-500 mt-1">{task.description}</p>}
                       </td>
-                      <td className="px-4 py-4 text-sm text-slate-700">{task.project_id || 'No project'}</td>
-                      <td className="px-4 py-4 text-sm text-slate-700">{task.assigned_to || 'Chưa gán'}</td>
+                      <td className="px-4 py-4 text-sm text-slate-700">{getProjectLabel(task)}</td>
+                      <td className="px-4 py-4 text-sm text-slate-700">{getAssigneeLabel(task)}</td>
                       <td className="px-4 py-4">
                         {task.priority ? <Badge variant={priorityVariantMap[task.priority]}>{task.priority}</Badge> : '-'}
                       </td>
@@ -341,7 +393,7 @@ export const Tasks = () => {
                           {task.description && <p className="text-sm text-slate-500 mt-2">{task.description}</p>}
                           <div className="mt-3 flex flex-wrap gap-2">
                             {task.priority && <Badge variant={priorityVariantMap[task.priority]}>{task.priority}</Badge>}
-                            <Badge variant="default">{task.assigned_to || 'Chưa gán'}</Badge>
+                            <Badge variant="default">{getAssigneeLabel(task)}</Badge>
                           </div>
                           <p className="text-xs text-slate-500 mt-3">Due: {task.due_date ? formatDate(task.due_date) : 'Chưa có'}</p>
                         </button>
@@ -386,11 +438,11 @@ export const Tasks = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-slate-600 mb-1">Project</p>
-                <p className="text-sm text-slate-900">{selectedTask.project_id || 'No project'}</p>
+                <p className="text-sm text-slate-900">{getProjectLabel(selectedTask)}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-600 mb-1">Gán cho</p>
-                <p className="text-sm text-slate-900">{selectedTask.assigned_to || 'Chưa gán'}</p>
+                <p className="text-sm text-slate-900">{getAssigneeLabel(selectedTask)}</p>
               </div>
             </div>
 
@@ -399,12 +451,91 @@ export const Tasks = () => {
               <p className="text-sm text-slate-900">{selectedTask.due_date ? formatDate(selectedTask.due_date) : 'Chưa có'}</p>
             </div>
 
-            <button className="w-full bg-deo-accent text-white py-2 rounded-lg font-medium hover:bg-cyan-600 transition-colors">
+            <button
+              onClick={() => openEditModal(selectedTask)}
+              className="w-full bg-deo-accent text-white py-2 rounded-lg font-medium hover:bg-cyan-600 transition-colors"
+            >
               Chỉnh sửa công việc
             </button>
           </div>
         )}
       </SlidePanel>
+
+      <Modal
+        isOpen={!!editingTask}
+        onClose={() => setEditingTask(null)}
+        title="Chỉnh sửa công việc"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-900 mb-2">Tiêu đề</label>
+            <input
+              type="text"
+              value={editForm.title}
+              onChange={(event) => setEditForm((current) => ({ ...current, title: event.target.value }))}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-deo-accent focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-900 mb-2">Mô tả</label>
+            <textarea
+              value={editForm.description || ''}
+              onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))}
+              rows={4}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-deo-accent focus:border-transparent"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-900 mb-2">Trạng thái</label>
+              <select
+                value={editForm.status}
+                onChange={(event) => setEditForm((current) => ({ ...current, status: event.target.value as Task['status'] }))}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-deo-accent focus:border-transparent"
+              >
+                <option value="todo">To do</option>
+                <option value="in_progress">In progress</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-900 mb-2">Ưu tiên</label>
+              <select
+                value={editForm.priority || 'medium'}
+                onChange={(event) => setEditForm((current) => ({ ...current, priority: event.target.value as Task['priority'] }))}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-deo-accent focus:border-transparent"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-900 mb-2">Hạn cuối</label>
+              <input
+                type="date"
+                value={editForm.due_date || ''}
+                onChange={(event) => setEditForm((current) => ({ ...current, due_date: event.target.value }))}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-deo-accent focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {editError && <p className="text-sm text-red-600">{editError}</p>}
+
+          <button
+            onClick={handleEditTask}
+            disabled={isSavingEdit}
+            className="w-full bg-deo-accent text-white py-2 rounded-lg font-medium hover:bg-cyan-600 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSavingEdit ? 'Đang lưu...' : 'Lưu thay đổi'}
+          </button>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={showAddModal}
