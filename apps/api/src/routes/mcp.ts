@@ -1,40 +1,11 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { callMcpTool, mcpTools } from '../mcp/tools';
+import { extractServiceToken, serviceTokenMiddleware } from '../middleware/service-auth';
 
 const router = Router();
 
-function extractServiceToken(req: Request) {
-  const serviceToken = req.headers['x-service-token'];
-  if (typeof serviceToken === 'string' && serviceToken.length > 0) {
-    return serviceToken;
-  }
-
-  const header = req.headers.authorization;
-  if (!header) {
-    return undefined;
-  }
-
-  if (header.startsWith('Bearer ')) {
-    return header.slice('Bearer '.length);
-  }
-
-  return header;
-}
-
-function mcpAuth(req: Request, res: Response, next: NextFunction) {
-  const expectedToken = process.env.ENTERPRISE_OS_MCP_TOKEN;
-  if (!expectedToken) {
-    return res.status(503).json({ error: 'MCP service token is not configured' });
-  }
-
-  const token = extractServiceToken(req);
-  if (!token || token !== expectedToken) {
-    return res.status(401).json({ error: 'Invalid MCP service token' });
-  }
-
-  next();
-}
+const mcpAuth = serviceTokenMiddleware;
 
 function rpcResult(id: any, result: any) {
   return { jsonrpc: '2.0', id: id ?? null, result };
