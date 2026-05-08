@@ -1,10 +1,18 @@
 import { query as dbQuery } from './db';
 import * as redis from './redis';
 import { connectRedis } from './redis';
+import { buildQueueKey, popAgentJob } from './orchestrator/dispatcher';
+import { getRuntimeAdapter, listRuntimeTypes, AgentJobContext } from './orchestrator/runtimes';
+import { sweepStuckJobs } from './orchestrator/sweeper';
+
+const POLL_INTERVAL_MS = 1000;
+const SWEEP_INTERVAL_MS = 60000;
+const ERROR_BACKOFF_MS = 5000;
+const LOG_TAIL_MAX = 16384;
 
 class Worker {
   private running = false;
-  private jobTimeout = 30000;
+  private lastSweep = 0;
 
   async start() {
     this.running = true;
@@ -15,173 +23,209 @@ class Worker {
 
     while (this.running) {
       try {
-        await this.processQueues();
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      } catch (error) {
-        console.error('Worker error', error);
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-      }
-    }
-  }
-
-  private async processQueues() {
-    try {
-      // PR2: queue payload is agent_job.id. We discover company queues via
-      // tasks (agents are platform-wide and have no company_id). PR3 will
-      // refactor to per-runtime-type queues with a proper dispatcher.
-      const companiesResult = await dbQuery(
-        'SELECT DISTINCT company_id FROM deo.tasks WHERE company_id IS NOT NULL'
-      );
-
-      for (const { company_id } of companiesResult.rows) {
-        const queueKey = `jobs:queue:${company_id}`;
-        const agentJobId = await redis.lpop(queueKey);
-
-        if (!agentJobId) {
-          continue;
-        }
-
-        await this.processAgentJob(agentJobId, company_id);
-      }
-    } catch (error) {
-      console.error('Failed to process queues', error);
-    }
-  }
-
-  private async processAgentJob(agentJobId: string, companyId: string) {
-    try {
-      const jobResult = await dbQuery(
-        `SELECT aj.*, te.task_id, te.attempt_number, t.company_id
-           FROM deo.agent_jobs aj
-           JOIN deo.task_executions te ON te.id = aj.execution_id
-           JOIN deo.tasks t ON t.id = te.task_id
-          WHERE aj.id = $1 AND t.company_id = $2`,
-        [agentJobId, companyId]
-      );
-
-      if (jobResult.rows.length === 0) {
-        console.log(`Agent job ${agentJobId} not found for company ${companyId}`);
-        return;
-      }
-
-      const job = jobResult.rows[0];
-
-      if (job.queue_state !== 'queued') {
-        console.log(`Agent job ${agentJobId} state is ${job.queue_state}, skipping`);
-        return;
-      }
-
-      let agentId = job.agent_id;
-      if (!agentId) {
-        const agent = await this.findAvailableAgent(job.runtime_type);
-        if (!agent) {
-          // Re-enqueue: no online agent for this runtime
-          await redis.lpush(`jobs:queue:${companyId}`, agentJobId);
-          console.log(`No ${job.runtime_type} agents available for job ${agentJobId}, requeuing`);
-          return;
-        }
-        agentId = agent.id;
-      }
-
-      await dbQuery(
-        `UPDATE deo.agent_jobs
-            SET agent_id = $1,
-                queue_state = 'claimed',
-                started_at = COALESCE(started_at, NOW()),
-                updated_at = NOW()
-          WHERE id = $2`,
-        [agentId, agentJobId]
-      );
-
-      await dbQuery(
-        `UPDATE deo.task_executions
-            SET status = 'running',
-                started_at = COALESCE(started_at, NOW()),
-                updated_at = NOW()
-          WHERE id = $1`,
-        [job.execution_id]
-      );
-
-      console.log(`Agent job ${agentJobId} claimed by agent ${agentId} (runtime ${job.runtime_type})`);
-
-      // PR2 keeps the existing "wait then timeout" behavior so external
-      // agents that PATCH /api/agent-jobs/:id/status still work end-to-end.
-      // PR3 introduces per-runtime adapters that actually invoke the runtime.
-      const processStart = Date.now();
-      let jobCompleted = false;
-
-      while (Date.now() - processStart < this.jobTimeout && !jobCompleted) {
-        const updated = await dbQuery(
-          'SELECT queue_state FROM deo.agent_jobs WHERE id = $1',
-          [agentJobId]
-        );
-
-        if (updated.rows.length > 0) {
-          const state = updated.rows[0].queue_state;
-          if (['done', 'dead', 'cancelled'].includes(state)) {
-            jobCompleted = true;
-            console.log(`Agent job ${agentJobId} finished with state ${state}`);
+        await this.processAllQueues();
+        if (Date.now() - this.lastSweep > SWEEP_INTERVAL_MS) {
+          const result = await sweepStuckJobs();
+          if (result.killed > 0) {
+            console.log(`Sweeper marked ${result.killed} stuck agent_jobs dead`);
           }
+          this.lastSweep = Date.now();
         }
-
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-
-      if (!jobCompleted) {
-        console.log(`Agent job ${agentJobId} timeout, marking dead`);
-        await dbQuery(
-          `UPDATE deo.agent_jobs
-              SET queue_state = 'dead',
-                  finished_at = COALESCE(finished_at, NOW()),
-                  updated_at = NOW()
-            WHERE id = $1 AND queue_state IN ('claimed','running')`,
-          [agentJobId]
-        );
-        await dbQuery(
-          `UPDATE deo.task_executions
-              SET status = 'failed',
-                  finished_at = COALESCE(finished_at, NOW()),
-                  updated_at = NOW()
-            WHERE id = $1 AND status NOT IN ('succeeded','failed','cancelled','needs_review')`,
-          [job.execution_id]
-        );
-      }
-    } catch (error) {
-      console.error(`Failed to process agent job ${agentJobId}`, error);
-      try {
-        await dbQuery(
-          `UPDATE deo.agent_jobs
-              SET queue_state = 'dead',
-                  finished_at = COALESCE(finished_at, NOW()),
-                  updated_at = NOW()
-            WHERE id = $1`,
-          [agentJobId]
-        );
-      } catch (updateError) {
-        console.error(`Failed to mark agent job ${agentJobId} dead`, updateError);
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      } catch (error) {
+        console.error('Worker loop error', error);
+        await new Promise((resolve) => setTimeout(resolve, ERROR_BACKOFF_MS));
       }
     }
   }
 
-  private async findAvailableAgent(runtimeType: string) {
+  // Discover (runtime_type, company_id) pairs that have queued agent_jobs,
+  // then attempt LPOP on each. Avoids polling dead queue keys and keeps
+  // discovery cost proportional to actual workload.
+  private async processAllQueues() {
+    const supportedRuntimes = listRuntimeTypes();
+    const result = await dbQuery(
+      `SELECT DISTINCT t.company_id, aj.runtime_type
+         FROM deo.agent_jobs aj
+         JOIN deo.task_executions te ON te.id = aj.execution_id
+         JOIN deo.tasks t ON t.id = te.task_id
+        WHERE aj.queue_state = 'queued'
+          AND aj.runtime_type = ANY($1::text[])`,
+      [supportedRuntimes]
+    );
+
+    for (const { company_id, runtime_type } of result.rows) {
+      const queueKey = buildQueueKey(runtime_type, company_id);
+      const agentJobId = await popAgentJob(queueKey);
+      if (!agentJobId) continue;
+      await this.runAgentJob(agentJobId);
+    }
+  }
+
+  private async runAgentJob(agentJobId: string) {
+    const ctx = await this.loadContext(agentJobId);
+    if (!ctx) return;
+
+    const { job, context } = ctx;
+
+    if (job.queue_state !== 'queued') {
+      // Lost race or already terminal — ignore.
+      return;
+    }
+
+    const adapter = getRuntimeAdapter(job.runtime_type);
+    if (!adapter) {
+      console.error(`No adapter for runtime ${job.runtime_type}; marking agent_job ${agentJobId} dead`);
+      await this.markDead(agentJobId, job.execution_id, job.task_id, {
+        message: `No runtime adapter for "${job.runtime_type}"`,
+      });
+      return;
+    }
+
+    await this.markRunning(agentJobId, job.execution_id);
+
     try {
-      const result = await dbQuery(
-        `SELECT id, runtime_type FROM deo.agents
-           WHERE runtime_type = $1 AND status = 'online'
-           ORDER BY last_heartbeat DESC NULLS LAST
-           LIMIT 1`,
-        [runtimeType]
-      );
+      const result = await adapter.run(context);
+      await this.persistResult(job, result);
+    } catch (err: any) {
+      const message = String(err?.message || err);
+      console.error(`Adapter ${adapter.name} threw for agent_job ${agentJobId}`, err);
+      await this.markDead(agentJobId, job.execution_id, job.task_id, { message, details: err?.stack });
+    }
+  }
 
-      if (result.rows.length === 0) {
-        return null;
-      }
-
-      return result.rows[0];
-    } catch (error) {
-      console.error('Failed to find agent', error);
+  private async loadContext(agentJobId: string): Promise<{ job: any; context: AgentJobContext } | null> {
+    const result = await dbQuery(
+      `SELECT aj.id, aj.execution_id, aj.agent_id, aj.runtime_type, aj.input, aj.queue_state,
+              te.task_id,
+              t.title AS task_title, t.description AS task_description, t.company_id
+         FROM deo.agent_jobs aj
+         JOIN deo.task_executions te ON te.id = aj.execution_id
+         JOIN deo.tasks t ON t.id = te.task_id
+        WHERE aj.id = $1`,
+      [agentJobId]
+    );
+    const job = result.rows[0];
+    if (!job) {
+      console.log(`Agent job ${agentJobId} not found; dropping`);
       return null;
     }
+
+    const context: AgentJobContext = {
+      id: job.id,
+      execution_id: job.execution_id,
+      task_id: job.task_id,
+      agent_id: job.agent_id,
+      runtime_type: job.runtime_type,
+      input: job.input || {},
+      task: {
+        id: job.task_id,
+        title: job.task_title,
+        description: job.task_description,
+        company_id: job.company_id,
+      },
+    };
+
+    return { job, context };
+  }
+
+  private async markRunning(agentJobId: string, executionId: string) {
+    await dbQuery(
+      `UPDATE deo.agent_jobs
+          SET queue_state = 'running',
+              started_at = COALESCE(started_at, NOW()),
+              updated_at = NOW()
+        WHERE id = $1`,
+      [agentJobId]
+    );
+    await dbQuery(
+      `UPDATE deo.task_executions
+          SET status = 'running',
+              started_at = COALESCE(started_at, NOW()),
+              updated_at = NOW()
+        WHERE id = $1
+          AND status NOT IN ('succeeded','failed','cancelled','needs_review')`,
+      [executionId]
+    );
+  }
+
+  private async persistResult(job: any, result: any) {
+    const succeeded = result.status === 'succeeded';
+    const queueState = succeeded ? 'done' : 'dead';
+    const executionStatus = succeeded ? 'succeeded' : 'failed';
+    const taskExecStatus = succeeded ? 'success' : 'failed';
+
+    const tail = typeof result.log_tail === 'string' ? result.log_tail.slice(-LOG_TAIL_MAX) : null;
+
+    await dbQuery(
+      `UPDATE deo.agent_jobs
+          SET queue_state = $1,
+              output = $2,
+              log_tail = CASE
+                  WHEN $3::text IS NULL THEN log_tail
+                  ELSE LEFT(COALESCE(log_tail,'') || $3, $7)
+              END,
+              tokens_in = COALESCE($4, tokens_in),
+              tokens_out = COALESCE($5, tokens_out),
+              cost_usd = COALESCE($6, cost_usd),
+              finished_at = COALESCE(finished_at, NOW()),
+              updated_at = NOW()
+        WHERE id = $8`,
+      [
+        queueState,
+        result.output ? JSON.stringify(result.output) : null,
+        tail,
+        result.tokens_in ?? null,
+        result.tokens_out ?? null,
+        result.cost_usd ?? null,
+        LOG_TAIL_MAX,
+        job.id,
+      ]
+    );
+
+    await dbQuery(
+      `UPDATE deo.task_executions
+          SET status = $1,
+              error = $2,
+              finished_at = COALESCE(finished_at, NOW()),
+              updated_at = NOW()
+        WHERE id = $3
+          AND status NOT IN ('succeeded','failed','cancelled','needs_review')`,
+      [executionStatus, result.error ? JSON.stringify(result.error) : null, job.execution_id]
+    );
+
+    await dbQuery(
+      `UPDATE deo.tasks SET execution_status = $1, updated_at = NOW() WHERE id = $2`,
+      [taskExecStatus, job.task_id]
+    );
+  }
+
+  private async markDead(agentJobId: string, executionId: string, taskId: string, error: { message: string; details?: unknown }) {
+    await dbQuery(
+      `UPDATE deo.agent_jobs
+          SET queue_state = 'dead',
+              output = $2,
+              finished_at = COALESCE(finished_at, NOW()),
+              updated_at = NOW()
+        WHERE id = $1`,
+      [agentJobId, JSON.stringify({ error })]
+    ).catch((e) => console.error('markDead agent_jobs update failed', e));
+
+    await dbQuery(
+      `UPDATE deo.task_executions
+          SET status = 'failed',
+              error = $1,
+              finished_at = COALESCE(finished_at, NOW()),
+              updated_at = NOW()
+        WHERE id = $2
+          AND status NOT IN ('succeeded','failed','cancelled','needs_review')`,
+      [JSON.stringify(error), executionId]
+    ).catch((e) => console.error('markDead task_executions update failed', e));
+
+    await dbQuery(
+      `UPDATE deo.tasks SET execution_status = 'failed', updated_at = NOW() WHERE id = $1`,
+      [taskId]
+    ).catch((e) => console.error('markDead tasks update failed', e));
   }
 
   stop() {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { ListFilter, Plus, Rows3, SquareKanban } from 'lucide-react';
 import type { Task } from '@/types';
 import { getTasks, updateTask } from '@/api/client';
@@ -124,6 +124,7 @@ const getProjectLabel = (task: Task) => task.project_name || task.project_id || 
 const getAssigneeLabel = (task: Task) => task.assignee_name || task.assigned_to || 'Chưa gán';
 
 export const Tasks = () => {
+  const navigate = useNavigate();
   const { setPageTitle } = useOutletContext<OutletContext>();
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -451,12 +452,20 @@ export const Tasks = () => {
               <p className="text-sm text-slate-900">{selectedTask.due_date ? formatDate(selectedTask.due_date) : 'Chưa có'}</p>
             </div>
 
-            <button
-              onClick={() => openEditModal(selectedTask)}
-              className="w-full bg-deo-accent text-white py-2 rounded-lg font-medium hover:bg-cyan-600 transition-colors"
-            >
-              Chỉnh sửa công việc
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => navigate(`/tasks/${selectedTask.id}`)}
+                className="rounded-lg border border-slate-200 py-2 font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Mở chi tiết
+              </button>
+              <button
+                onClick={() => openEditModal(selectedTask)}
+                className="rounded-lg bg-deo-accent py-2 font-medium text-white hover:bg-cyan-600 transition-colors"
+              >
+                Chỉnh sửa
+              </button>
+            </div>
           </div>
         )}
       </SlidePanel>

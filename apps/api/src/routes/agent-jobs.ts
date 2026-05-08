@@ -3,17 +3,10 @@ import { query as dbQuery } from '../db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { AuditedRequest } from '../middleware/audit';
 import { v4 as uuidv4 } from 'uuid';
-import * as redis from '../redis';
+import { buildQueueKey, dispatchAgentJob } from '../orchestrator/dispatcher';
 
 const LOG_TAIL_MAX = 16384;
 const DEFAULT_RUNTIME = 'openclaw';
-
-const getPaginationParams = (query: any) => {
-  const page = parseInt(query.page) || 1;
-  const limit = Math.min(parseInt(query.limit) || 20, 100);
-  const offset = (page - 1) * limit;
-  return { page, limit, offset };
-};
 
 const appendLogTail = (current: string | null, addition: string): string => {
   const next = (current || '') + addition;
@@ -30,10 +23,6 @@ const findAgentForRuntime = async (runtimeType: string) => {
     [runtimeType]
   );
   return result.rows[0] || null;
-};
-
-const enqueueAgentJob = async (companyId: string, agentJobId: string) => {
-  await redis.lpush(`jobs:queue:${companyId}`, agentJobId);
 };
 
 const fetchAgentJobScoped = async (agentJobId: string, companyId: string) => {
@@ -132,7 +121,7 @@ const createExecutionAndEnqueue = async (input: CreateExecutionInput): Promise<C
   );
 
   const agentJobId = uuidv4();
-  const queueName = `jobs:queue:${input.companyId}`;
+  const queueName = buildQueueKey(runtimeType, input.companyId);
   await dbQuery(
     `INSERT INTO deo.agent_jobs
        (id, execution_id, sequence_index, agent_id, runtime_type, queue_name, queue_state, input, created_at, updated_at)
@@ -154,7 +143,7 @@ const createExecutionAndEnqueue = async (input: CreateExecutionInput): Promise<C
     [input.taskId]
   );
 
-  await enqueueAgentJob(input.companyId, agentJobId);
+  await dispatchAgentJob({ agentJobId, runtimeType, companyId: input.companyId });
 
   const executionResult = await dbQuery(
     `SELECT * FROM deo.task_executions WHERE id = $1`,
@@ -353,330 +342,6 @@ agentJobsRouter.post('/:id/retry', authMiddleware, async (req: AuditedRequest, r
   } catch (error) {
     console.error('Retry agent job error', error);
     res.status(500).json({ error: 'Failed to retry agent job' });
-  }
-});
-
-// ============================================================
-// legacyJobsRouter — /api/jobs/* (DEPRECATED, removed in PR3)
-//
-// Existing clients call /api/jobs treating each row as both task and job.
-// PR2 keeps these endpoints as a thin compatibility layer over the new
-// task / task_executions / agent_jobs schema. New integrations should
-// use POST /api/tasks/:id/executions and the /api/agent-jobs/* endpoints.
-// ============================================================
-export const legacyJobsRouter = Router();
-
-legacyJobsRouter.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const { limit, offset } = getPaginationParams(req.query);
-    const { status } = req.query;
-
-    let queryStr = `SELECT * FROM deo.tasks WHERE company_id = $1`;
-    const params: any[] = [req.user.company_id];
-
-    if (status) {
-      queryStr += ` AND status = $${params.length + 1}`;
-      params.push(status);
-    }
-
-    queryStr += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-    params.push(limit, offset);
-
-    const result = await dbQuery(queryStr, params);
-
-    res.json({
-      data: result.rows.map((task: any) => ({
-        id: task.id,
-        title: task.title,
-        description: task.description,
-        status: task.status,
-        priority: task.priority,
-        assigned_to: task.assigned_to,
-        created_at: task.created_at,
-      })),
-      pagination: { page: Math.floor(offset / limit) + 1, limit, total: result.rows.length },
-    });
-  } catch (error) {
-    console.error('List legacy jobs error', error);
-    res.status(500).json({ error: 'Failed to fetch jobs' });
-  }
-});
-
-legacyJobsRouter.post('/', authMiddleware, async (req: AuditedRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const { title, description, priority, runtime_type, input } = req.body;
-
-    if (!title) {
-      return res.status(400).json({ error: 'Title is required' });
-    }
-
-    const taskId = uuidv4();
-
-    await dbQuery(
-      `INSERT INTO deo.tasks (id, company_id, title, description, status, priority, created_by, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
-      [taskId, req.user.company_id, title, description || null, 'open', priority || 'medium', req.user.id]
-    );
-
-    const created = await createExecutionAndEnqueue({
-      taskId,
-      companyId: req.user.company_id,
-      triggeredBy: req.user.id,
-      triggerReason: 'manual',
-      runtimeType: runtime_type,
-      input,
-    });
-
-    req.auditData = {
-      entity_type: 'job',
-      entity_id: taskId,
-      new_values: { title, status: 'open', execution_id: created.execution.id, agent_job_id: created.agentJob.id },
-    };
-
-    res.status(201).json({
-      id: taskId,
-      title,
-      status: 'open',
-      execution_id: created.execution.id,
-      agent_job_id: created.agentJob.id,
-      created_at: created.execution.created_at,
-    });
-  } catch (error) {
-    console.error('Create legacy job error', error);
-    res.status(500).json({ error: 'Failed to create job' });
-  }
-});
-
-legacyJobsRouter.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const result = await dbQuery(
-      `SELECT t.*,
-              te.id AS latest_execution_id,
-              te.status AS latest_execution_status,
-              te.attempt_number AS latest_attempt_number,
-              aj.id AS latest_agent_job_id,
-              aj.queue_state AS latest_agent_job_state,
-              aj.runtime_type AS latest_agent_job_runtime_type
-         FROM deo.tasks t
-         LEFT JOIN LATERAL (
-           SELECT * FROM deo.task_executions
-            WHERE task_id = t.id
-            ORDER BY attempt_number DESC LIMIT 1
-         ) te ON true
-         LEFT JOIN LATERAL (
-           SELECT * FROM deo.agent_jobs
-            WHERE execution_id = te.id
-            ORDER BY sequence_index DESC, created_at DESC LIMIT 1
-         ) aj ON true
-         WHERE t.id = $1 AND t.company_id = $2`,
-      [req.params.id, req.user.company_id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Job not found' });
-    }
-
-    const task = result.rows[0];
-
-    res.json({
-      id: task.id,
-      title: task.title,
-      description: task.description,
-      status: task.status,
-      priority: task.priority,
-      assigned_to: task.assigned_to,
-      latest_execution: task.latest_execution_id
-        ? {
-            id: task.latest_execution_id,
-            status: task.latest_execution_status,
-            attempt_number: task.latest_attempt_number,
-          }
-        : null,
-      latest_agent_job: task.latest_agent_job_id
-        ? {
-            id: task.latest_agent_job_id,
-            queue_state: task.latest_agent_job_state,
-            runtime_type: task.latest_agent_job_runtime_type,
-          }
-        : null,
-      created_at: task.created_at,
-      updated_at: task.updated_at,
-    });
-  } catch (error) {
-    console.error('Get legacy job error', error);
-    res.status(500).json({ error: 'Failed to fetch job' });
-  }
-});
-
-legacyJobsRouter.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const jobId = req.params.id;
-    const oldResult = await dbQuery(
-      'SELECT * FROM deo.tasks WHERE id = $1 AND company_id = $2',
-      [jobId, req.user.company_id]
-    );
-
-    if (oldResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Job not found' });
-    }
-
-    const oldJob = oldResult.rows[0];
-    const { status } = req.body;
-
-    if (status === undefined) {
-      return res.status(400).json({ error: 'No updates provided' });
-    }
-
-    const result = await dbQuery(
-      `UPDATE deo.tasks SET status = $1, updated_at = NOW()
-        WHERE id = $2 AND company_id = $3 RETURNING *`,
-      [status, jobId, req.user.company_id]
-    );
-
-    req.auditData = {
-      entity_type: 'job',
-      entity_id: jobId,
-      old_values: oldJob,
-      new_values: result.rows[0],
-    };
-
-    const task = result.rows[0];
-    res.json({
-      id: task.id,
-      title: task.title,
-      status: task.status,
-      updated_at: task.updated_at,
-    });
-  } catch (error) {
-    console.error('Update legacy job error', error);
-    res.status(500).json({ error: 'Failed to update job' });
-  }
-});
-
-legacyJobsRouter.post('/:id/messages', authMiddleware, async (req: AuditedRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const jobId = req.params.id;
-    const { content } = req.body;
-
-    if (!content) {
-      return res.status(400).json({ error: 'Content is required' });
-    }
-
-    const jobResult = await dbQuery(
-      'SELECT id FROM deo.tasks WHERE id = $1 AND company_id = $2',
-      [jobId, req.user.company_id]
-    );
-
-    if (jobResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Job not found' });
-    }
-
-    const messageId = uuidv4();
-    const messageKey = `job:${jobId}:messages`;
-
-    await redis.lpush(
-      messageKey,
-      JSON.stringify({
-        id: messageId,
-        job_id: jobId,
-        sender_id: req.user.id,
-        content,
-        timestamp: new Date().toISOString(),
-      })
-    );
-
-    req.auditData = {
-      entity_type: 'job_message',
-      entity_id: messageId,
-      new_values: { job_id: jobId, content },
-    };
-
-    res.status(201).json({
-      id: messageId,
-      job_id: jobId,
-      sender_id: req.user.id,
-      content,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('Create legacy job message error', error);
-    res.status(500).json({ error: 'Failed to create message' });
-  }
-});
-
-legacyJobsRouter.post('/:id/retry', authMiddleware, async (req: AuditedRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const taskId = req.params.id;
-
-    const taskResult = await dbQuery(
-      'SELECT id FROM deo.tasks WHERE id = $1 AND company_id = $2',
-      [taskId, req.user.company_id]
-    );
-
-    if (taskResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Job not found' });
-    }
-
-    const latest = await dbQuery(
-      `SELECT id FROM deo.task_executions
-        WHERE task_id = $1
-        ORDER BY attempt_number DESC LIMIT 1`,
-      [taskId]
-    );
-    const parentExecutionId = latest.rows[0]?.id || null;
-
-    await dbQuery(
-      `UPDATE deo.tasks SET status = 'open', updated_at = NOW() WHERE id = $1`,
-      [taskId]
-    );
-
-    const created = await createExecutionAndEnqueue({
-      taskId,
-      companyId: req.user.company_id,
-      triggeredBy: req.user.id,
-      triggerReason: 'retry',
-      parentExecutionId,
-    });
-
-    req.auditData = {
-      entity_type: 'job',
-      entity_id: taskId,
-      new_values: { status: 'open', execution_id: created.execution.id, agent_job_id: created.agentJob.id },
-    };
-
-    res.json({
-      id: taskId,
-      status: 'open',
-      execution_id: created.execution.id,
-      agent_job_id: created.agentJob.id,
-    });
-  } catch (error) {
-    console.error('Retry legacy job error', error);
-    res.status(500).json({ error: 'Failed to retry job' });
   }
 });
 
