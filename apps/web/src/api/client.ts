@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Task, Expense, Client, DashboardSummary, LoginResponse, Project } from '../types';
+import type { Task, Expense, Client, DashboardSummary, LoginResponse, Project, Agent } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -156,6 +156,34 @@ export const getProjects = async (filters?: {
 }): Promise<Project[]> => {
   const { data } = await api.get('/projects', { params: filters });
   return unwrapList<any>(data).map(normalizeProject);
+};
+
+const agentEmoji = (name?: string): string => {
+  const key = (name || '').toLowerCase();
+  if (key.includes('it') || key.includes('dev') || key.includes('code')) return '💻';
+  if (key.includes('finance') || key.includes('kế toán')) return '💰';
+  if (key.includes('hr')) return '👥';
+  if (key.includes('office')) return '🏢';
+  if (key.includes('phap') || key.includes('luật')) return '⚖️';
+  return '🤖';
+};
+
+const normalizeAgent = (agent: any): Agent => ({
+  id: String(agent.id),
+  name: agent.display_name || agent.name,
+  emoji: agent.metadata?.emoji || agentEmoji(agent.name || agent.display_name),
+  capabilities: Array.isArray(agent.capabilities) ? agent.capabilities : [],
+  status: agent.status === 'online' ? 'online' : agent.status === 'sleeping' ? 'sleeping' : 'offline',
+  active_tasks: Number(agent.active_tasks || 0),
+  completed_today: Number(agent.completed_today || 0),
+  tokens_used: Number(agent.tokens_used || 0),
+  last_heartbeat: agent.last_heartbeat || agent.updated_at || agent.created_at || new Date(0).toISOString(),
+  company_id: String(agent.company_id || ''),
+});
+
+export const getAgents = async (filters?: { status?: string }): Promise<Agent[]> => {
+  const { data } = await api.get('/agents', { params: filters });
+  return unwrapList<any>(data).map(normalizeAgent);
 };
 
 export const getProject = async (id: string): Promise<Project> => {

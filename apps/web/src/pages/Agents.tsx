@@ -4,6 +4,7 @@ import { Agent } from '@/types';
 import { AgentCard } from '@/components/AgentCard';
 import { Modal } from '@/components/Modal';
 import { Plus } from 'lucide-react';
+import { getAgents } from '@/api/client';
 
 interface OutletContext {
   setPageTitle: (title: string) => void;
@@ -86,12 +87,33 @@ const mockAgents: Agent[] = [
 
 export const Agents = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
-  const [agents, setAgents] = useState<Agent[]>(mockAgents);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [usingFallback, setUsingFallback] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     setPageTitle('Agents');
   }, [setPageTitle]);
+
+  useEffect(() => {
+    const loadAgents = async () => {
+      try {
+        setIsLoading(true);
+        const data = await getAgents();
+        setAgents(data);
+        setUsingFallback(false);
+      } catch (error) {
+        console.warn('Falling back to mock agents', error);
+        setAgents(mockAgents);
+        setUsingFallback(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadAgents();
+  }, []);
 
   const onlineCount = agents.filter((a) => a.status === 'online').length;
   const sleepingCount = agents.filter((a) => a.status === 'sleeping').length;
@@ -116,6 +138,12 @@ export const Agents = () => {
 
   return (
     <div className="space-y-6">
+      {usingFallback && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Đang dùng fallback agent data vì API agents chưa phản hồi đúng lúc này.
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex gap-6">
           <div className="flex items-center gap-2">
@@ -147,6 +175,11 @@ export const Agents = () => {
         </button>
       </div>
 
+      {isLoading ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-600">
+          Đang tải agents...
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {agents.map((agent) => (
           <AgentCard
@@ -157,6 +190,7 @@ export const Agents = () => {
           />
         ))}
       </div>
+      )}
 
       <Modal
         isOpen={showAddModal}

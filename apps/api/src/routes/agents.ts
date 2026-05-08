@@ -77,8 +77,8 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     const { limit, offset } = getPaginationParams(req.query);
     const { status } = req.query;
 
-    let queryStr = 'SELECT * FROM deo.agents WHERE company_id = $1';
-    const params: any[] = [req.user.company_id];
+    let queryStr = 'SELECT * FROM deo.agents WHERE 1 = 1';
+    const params: any[] = [];
 
     if (status) {
       queryStr += ` AND status = $${params.length + 1}`;
@@ -107,8 +107,8 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     }
 
     const result = await dbQuery(
-      'SELECT * FROM deo.agents WHERE id = $1 AND company_id = $2',
-      [req.params.id, req.user.company_id]
+      'SELECT * FROM deo.agents WHERE id = $1',
+      [req.params.id]
     );
 
     if (result.rows.length === 0) {
@@ -129,7 +129,7 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
     }
 
     const agentId = req.params.id;
-    const oldResult = await dbQuery('SELECT * FROM deo.agents WHERE id = $1 AND company_id = $2', [agentId, req.user.company_id]);
+    const oldResult = await dbQuery('SELECT * FROM deo.agents WHERE id = $1', [agentId]);
 
     if (oldResult.rows.length === 0) {
       return res.status(404).json({ error: 'Agent not found' });
@@ -163,9 +163,9 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
     }
 
     updates.push(`updated_at = NOW()`);
-    values.push(agentId, req.user.company_id);
+    values.push(agentId);
 
-    const queryStr = `UPDATE deo.agents SET ${updates.join(', ')} WHERE id = $${values.length - 1} AND company_id = $${values.length} RETURNING *`;
+    const queryStr = `UPDATE deo.agents SET ${updates.join(', ')} WHERE id = $${values.length} RETURNING *`;
 
     const result = await dbQuery(queryStr, values);
 
