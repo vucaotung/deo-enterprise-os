@@ -174,7 +174,8 @@ router.patch('/jobs/:id/status', async (req: ServiceRequest, res: Response) => {
     const job = await fetchJobForRunner(req.params.id);
     if (!job) return res.status(404).json({ error: 'Agent job not found' });
 
-    const queueState = req.body?.queue_state;
+    const queueState = String(req.body?.queue_state || '');
+    const isTerminalState = ['done', 'dead', 'cancelled'].includes(queueState);
     if (!['claimed', 'running', 'done', 'dead', 'cancelled'].includes(queueState)) {
       return res.status(400).json({ error: 'Invalid queue_state' });
     }
@@ -187,7 +188,7 @@ router.patch('/jobs/:id/status', async (req: ServiceRequest, res: Response) => {
               tokens_in = COALESCE($4, tokens_in),
               tokens_out = COALESCE($5, tokens_out),
               cost_usd = COALESCE($6, cost_usd),
-              finished_at = CASE WHEN $1::text IN ('done','dead','cancelled') THEN COALESCE(finished_at, NOW()) ELSE finished_at END,
+              finished_at = CASE WHEN $8::boolean THEN COALESCE(finished_at, NOW()) ELSE finished_at END,
               updated_at = NOW()
         WHERE id = $7
         RETURNING *`,
@@ -199,6 +200,7 @@ router.patch('/jobs/:id/status', async (req: ServiceRequest, res: Response) => {
         req.body?.tokens_out ?? null,
         req.body?.cost_usd ?? null,
         req.params.id,
+        isTerminalState,
       ]
     );
 
@@ -209,7 +211,7 @@ router.patch('/jobs/:id/status', async (req: ServiceRequest, res: Response) => {
       );
     }
 
-    if (['done', 'dead', 'cancelled'].includes(queueState)) {
+    if (isTerminalState) {
       const executionStatus = await cascadeExecutionStatus(job.execution_id);
       if (executionStatus === 'succeeded') {
         await dbQuery(`UPDATE deo.tasks SET execution_status = 'success', updated_at = NOW() WHERE id = $1`, [job.task_id]);
