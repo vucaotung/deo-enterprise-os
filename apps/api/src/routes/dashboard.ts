@@ -12,7 +12,7 @@ router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) =
 
     const companyId = req.user.company_id;
 
-    const [tasksResult, expensesResult, leadsResult, agentsResult, clarificationsResult] = await Promise.all([
+    const [tasksResult, expensesResult, leadsResult, agentsResult, clarificationsResult, completedTasksResult] = await Promise.all([
       dbQuery(
         `SELECT COUNT(*) as total,
                 SUM(CASE WHEN COALESCE(workflow_status, status) = 'completed' THEN 1 ELSE 0 END) as completed,
@@ -45,6 +45,18 @@ router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) =
          WHERE t.company_id = $1 AND c.status IN ('open', 'pending')`,
         [companyId]
       ),
+      dbQuery(
+        `SELECT t.id, t.title, COALESCE(a.display_name, u.name, u.email) as actor_name, t.updated_at
+         FROM deo.tasks t
+         LEFT JOIN deo.agents a ON a.id = t.agent_id
+         LEFT JOIN deo.users u ON u.id = t.assigned_to
+         WHERE t.company_id = $1
+           AND COALESCE(t.workflow_status, t.status) = 'completed'
+           AND t.updated_at >= NOW() - INTERVAL '48 hours'
+         ORDER BY t.updated_at DESC
+         LIMIT 5`,
+        [companyId]
+      ),
     ]);
 
     const tasksData = tasksResult.rows[0];
@@ -52,6 +64,12 @@ router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) =
     const leadsData = leadsResult.rows[0];
     const agentsData = agentsResult.rows[0];
     const clarificationsData = clarificationsResult.rows[0];
+    const completedTaskAlerts = completedTasksResult.rows.map((task: any) => ({
+      type: 'Task done',
+      message: `${task.actor_name || 'Agent'} đã hoàn tất task: ${task.title}`,
+      task_id: task.id,
+      created_at: task.updated_at,
+    }));
 
     res.json({
       tasks: {
@@ -76,6 +94,7 @@ router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) =
       clarifications: {
         pending: parseInt(clarificationsData.total) || 0,
       },
+      alerts: completedTaskAlerts,
     });
   } catch (error) {
     console.error('Dashboard summary error', error);
