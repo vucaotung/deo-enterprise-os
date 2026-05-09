@@ -1,35 +1,34 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
-  MessageSquare,
   CheckSquare,
   FolderKanban,
   Users,
   DollarSign,
   Zap,
-  HelpCircle,
   BookOpen,
   Menu,
   X,
   LogOut,
+  Inbox,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 export const Sidebar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const { logout, user } = useAuth();
-  const displayName = user?.username || 'User';
+  const navigate = useNavigate();
+  const displayName = (user as any)?.full_name || user?.username || 'User';
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/' },
-    { icon: MessageSquare, label: 'Chat', path: '/chat' },
+    { icon: Inbox, label: 'Requests', path: '/requests' },
     { icon: CheckSquare, label: 'Công việc', path: '/tasks' },
     { icon: FolderKanban, label: 'Projects', path: '/projects' },
     { icon: Users, label: 'CRM', path: '/crm' },
     { icon: DollarSign, label: 'Tài chính', path: '/finance' },
     { icon: Zap, label: 'Agents', path: '/agents' },
-    { icon: HelpCircle, label: 'Làm rõ', path: '/clarifications' },
     { icon: BookOpen, label: 'Sổ ghi chép', path: '/notebooks' },
   ];
 
@@ -57,6 +56,7 @@ export const Sidebar = () => {
                 <li key={path}>
                   <NavLink
                     to={path}
+                    end={path === '/'}
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                         isActive
@@ -75,14 +75,18 @@ export const Sidebar = () => {
           </div>
 
           <div className="border-t border-slate-700 p-4 space-y-2">
-            <div className="flex items-center gap-3 px-3 py-2">
-              <div className="w-8 h-8 bg-deo-accent rounded-full flex items-center justify-center text-sm font-bold">
+            <button
+              onClick={() => navigate('/profile')}
+              className="w-full flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-700 rounded-lg transition-colors"
+              title="Hồ sơ cá nhân"
+            >
+              <div className="w-6 h-6 bg-deo-accent rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
                 {displayName.charAt(0).toUpperCase()}
               </div>
               {isExpanded && (
-                <span className="text-sm text-slate-300 truncate">{displayName}</span>
+                <span className="text-sm truncate">{displayName}</span>
               )}
-            </div>
+            </button>
             <button
               onClick={() => logout()}
               className="w-full flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-700 rounded-lg transition-colors"

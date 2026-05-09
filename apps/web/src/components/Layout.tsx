@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, Outlet } from 'react-router-dom';
-import { Bell, ChevronDown } from 'lucide-react';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Bell, ChevronDown, UserCircle, LogOut } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { useAuth } from '@/hooks/useAuth';
 import { getDashboardSummary } from '@/api/client';
@@ -26,8 +26,11 @@ export const Layout = () => {
   const [selectedCompany, setSelectedCompany] = useState('All Companies');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isNotificationsOpen, setNotificationsOpen] = useState(false);
+  const [isUserMenuOpen, setUserMenuOpen] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuth();
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const displayName = user?.username || 'User';
 
   const notificationCount = notifications.length;
@@ -123,6 +126,9 @@ export const Layout = () => {
     const onPointerDown = (event: PointerEvent) => {
       if (!notificationRef.current?.contains(event.target as Node)) {
         setNotificationsOpen(false);
+      }
+      if (!userMenuRef.current?.contains(event.target as Node)) {
+        setUserMenuOpen(false);
       }
     };
 
@@ -222,13 +228,37 @@ export const Layout = () => {
               )}
             </div>
 
-            <button className="flex items-center gap-2 px-3 py-2 text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-              <div className="w-8 h-8 bg-deo-accent rounded-full flex items-center justify-center text-sm font-bold text-white">
-                {displayName.charAt(0).toUpperCase()}
-              </div>
-              <span className="text-sm font-medium">{displayName}</span>
-              <ChevronDown size={16} />
-            </button>
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setUserMenuOpen((v) => !v)}
+                className="flex items-center gap-2 px-3 py-2 text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <div className="w-8 h-8 bg-deo-accent rounded-full flex items-center justify-center text-sm font-bold text-white">
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm font-medium">{displayName}</span>
+                <ChevronDown size={16} />
+              </button>
+              {isUserMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50">
+                  <button
+                    onClick={() => { setUserMenuOpen(false); navigate('/profile'); }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                  >
+                    <UserCircle size={15} />
+                    Hồ sơ cá nhân
+                  </button>
+                  <hr className="my-1 border-slate-100" />
+                  <button
+                    onClick={() => { setUserMenuOpen(false); logout(); }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut size={15} />
+                    Đăng xuất
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 

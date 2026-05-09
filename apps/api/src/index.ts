@@ -24,6 +24,7 @@ import agentRunnerRoutes from './routes/agent-runner';
 import telegramRoutes from './routes/telegram';
 import backofficeRoutes from './routes/backoffice';
 import mcpRoutes from './routes/mcp';
+import requestsRoutes from './routes/requests';
 
 import { auditMiddleware } from './middleware/audit';
 import { authMiddleware } from './middleware/auth';
@@ -76,6 +77,7 @@ app.use('/api/agent-jobs', authMiddleware, agentJobsRoutes);
 app.use('/api/agent-runner', agentRunnerRoutes);
 app.use('/api/telegram', telegramRoutes);
 app.use('/api/backoffice', backofficeRoutes);
+app.use('/api/requests', requestsRoutes);
 app.use('/mcp', mcpRoutes);
 
 io.on('connection', (socket) => {

@@ -315,4 +315,86 @@ export const retryAgentJob = async (
 export const cancelAgentJob = async (id: string): Promise<AgentJob> =>
   patchAgentJobStatus(id, { queue_state: 'cancelled' });
 
+// User profile
+export const updateProfile = async (updates: {
+  full_name?: string;
+  avatar_url?: string;
+  department?: string;
+}): Promise<any> => {
+  const { data } = await api.patch('/auth/me', updates);
+  return data;
+};
+
+export const changePassword = async (old_password: string, new_password: string): Promise<void> => {
+  await api.post('/auth/change-password', { old_password, new_password });
+};
+
+export const getMemberships = async (): Promise<{
+  companies: any[];
+  projects: any[];
+  tasks: any[];
+}> => {
+  const { data } = await api.get('/auth/me/memberships');
+  return data;
+};
+
+// Requests
+export const getRequests = async (filters?: {
+  status?: string;
+  type?: string;
+  assigned_agent?: string;
+}): Promise<any[]> => {
+  const { data } = await api.get('/requests', { params: filters });
+  return unwrapList<any>(data);
+};
+
+export const createRequest = async (payload: {
+  title: string;
+  description?: string;
+  type?: string;
+  priority?: string;
+  context_type?: string;
+  context_id?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<any> => {
+  const { data } = await api.post('/requests', payload);
+  return data;
+};
+
+export const getRequest = async (id: string): Promise<any> => {
+  const { data } = await api.get(`/requests/${id}`);
+  return data;
+};
+
+export const updateRequest = async (
+  id: string,
+  updates: {
+    status?: string;
+    assigned_agent?: string | null;
+    priority?: string;
+    title?: string;
+    description?: string;
+  }
+): Promise<any> => {
+  const { data } = await api.patch(`/requests/${id}`, updates);
+  return data;
+};
+
+export const getRequestComments = async (requestId: string): Promise<any[]> => {
+  const { data } = await api.get(`/requests/${requestId}/comments`);
+  return unwrapList<any>(data);
+};
+
+export const addRequestComment = async (
+  requestId: string,
+  payload: {
+    content: string;
+    content_type?: string;
+    parent_id?: string;
+  }
+): Promise<any> => {
+  const { data } = await api.post(`/requests/${requestId}/comments`, payload);
+  return data;
+};
+
 export default api;

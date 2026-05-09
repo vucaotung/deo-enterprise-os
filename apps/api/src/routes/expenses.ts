@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { query as dbQuery } from '../db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { requireMinRole } from '../middleware/require-role';
 import { AuditedRequest } from '../middleware/audit';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -177,7 +178,7 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
   }
 });
 
-router.delete('/:id', authMiddleware, async (req: AuditedRequest, res: Response) => {
+router.delete('/:id', authMiddleware, requireMinRole('manager'), async (req: AuditedRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
