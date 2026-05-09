@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { requireMinRole } from '../middleware/require-role';
 import { AuditedRequest } from '../middleware/audit';
 import { backofficeRegistryService } from '../services/backoffice-registry.service';
 import { backofficeFolderService } from '../services/backoffice-folder.service';
@@ -42,7 +43,7 @@ router.post('/folders/resolve', authMiddleware, async (req: AuthRequest, res: Re
   }
 });
 
-router.post('/workflows/dispatch', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.post('/workflows/dispatch', authMiddleware, requireMinRole('manager'), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });

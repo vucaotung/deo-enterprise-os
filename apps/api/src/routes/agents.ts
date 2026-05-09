@@ -1,6 +1,8 @@
 import { Router, Response } from 'express';
 import { query as dbQuery } from '../db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { requireMinRole } from '../middleware/require-role';
+import { serviceTokenMiddleware } from '../middleware/service-auth';
 import { AuditedRequest } from '../middleware/audit';
 import * as redis from '../redis';
 
@@ -13,7 +15,17 @@ const getPaginationParams = (query: any) => {
   return { page, limit, offset };
 };
 
-router.post('/register', async (req: any, res: Response) => {
+// Accept either a service token (agent self-registration) or user JWT with admin role
+function agentRegisterAuth(req: any, res: Response, next: any) {
+  const token = req.headers['x-service-token'] as string | undefined;
+  const expectedToken = process.env.ENTERPRISE_OS_MCP_TOKEN || process.env.AGENT_RUNNER_TOKEN;
+  if (expectedToken && token === expectedToken) {
+    return next();
+  }
+  return authMiddleware(req, res, () => requireMinRole('admin')(req, res, next));
+}
+
+router.post('/register', agentRegisterAuth, async (req: any, res: Response) => {
   try {
     const {
       name,

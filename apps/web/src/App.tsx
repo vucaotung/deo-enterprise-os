@@ -4,7 +4,6 @@ import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
 import { Login } from '@/pages/Login';
 import { Dashboard } from '@/pages/Dashboard';
-import { Chat } from '@/pages/Chat';
 import { Tasks } from '@/pages/Tasks';
 import { TaskDetail } from '@/pages/TaskDetail';
 import { Projects } from '@/pages/Projects';
@@ -13,8 +12,9 @@ import { ProjectTasks } from '@/pages/ProjectTasks';
 import { CRM } from '@/pages/CRM';
 import { Finance } from '@/pages/Finance';
 import { Agents } from '@/pages/Agents';
-import { Clarifications } from '@/pages/Clarifications';
 import { Notebooks } from '@/pages/Notebooks';
+import { Profile } from '@/pages/Profile';
+import { Requests } from '@/pages/Requests';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,7 +71,7 @@ const AppRoutes = () => {
         }
       >
         <Route path="/" element={<Dashboard />} />
-        <Route path="/chat" element={<Chat />} />
+        <Route path="/requests" element={<Requests />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/tasks/:id" element={<TaskDetail />} />
         <Route path="/projects" element={<Projects />} />
@@ -80,8 +80,8 @@ const AppRoutes = () => {
         <Route path="/crm" element={<CRM />} />
         <Route path="/finance" element={<Finance />} />
         <Route path="/agents" element={<Agents />} />
-        <Route path="/clarifications" element={<Clarifications />} />
         <Route path="/notebooks" element={<Notebooks />} />
+        <Route path="/profile" element={<Profile />} />
       </Route>
     </Routes>
   );
