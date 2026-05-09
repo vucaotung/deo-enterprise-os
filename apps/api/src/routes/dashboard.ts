@@ -71,6 +71,7 @@ router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) =
       },
       agents: {
         online: parseInt(agentsData.online) || 0,
+        offline: parseInt(agentsData.offline) || 0,
       },
       clarifications: {
         pending: parseInt(clarificationsData.total) || 0,

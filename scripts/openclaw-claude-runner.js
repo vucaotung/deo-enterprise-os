@@ -91,8 +91,8 @@ const appendLog = async (jobId, line) => {
 const runClaude = (job) => new Promise((resolve) => {
   const workdir = resolveWorkdir(job);
   const timeoutMs = Number(job.input?.timeout_ms || job.agent?.config?.timeout_ms || DEFAULT_TIMEOUT_MS);
-  const args = ['--permission-mode', 'bypassPermissions', '--print'];
   const prompt = buildPrompt(job);
+  const args = ['--permission-mode', 'bypassPermissions', '--print', prompt];
   let stdout = '';
   let stderr = '';
   let timedOut = false;
@@ -103,9 +103,8 @@ const runClaude = (job) => new Promise((resolve) => {
     shell: false,
     windowsHide: true,
     env: process.env,
-    stdio: ['pipe', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
-  child.stdin.end(prompt);
   const timer = setTimeout(() => {
     timedOut = true;
     child.kill('SIGTERM');

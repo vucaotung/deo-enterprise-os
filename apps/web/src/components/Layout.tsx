@@ -41,12 +41,12 @@ export const Layout = () => {
   useEffect(() => {
     const loadNotifications = async () => {
       try {
-        const summary: any = await getDashboardSummary();
+        const summary = await getDashboardSummary();
         const items: NotificationItem[] = [];
-        const pendingClarifications = numberValue(summary?.clarifications?.pending, summary?.clarificationCount, summary?.pendingClarifications);
-        const openTasks = numberValue(summary?.tasks?.open, summary?.taskCountByStatus?.todo, summary?.taskCount);
-        const runningTasks = numberValue(summary?.tasks?.in_progress, summary?.taskCountByStatus?.in_progress);
-        const offlineAgents = numberValue(summary?.agents?.offline, summary?.agentCountByStatus?.offline);
+        const pendingClarifications = numberValue(summary.clarifications?.pending);
+        const openTasks = numberValue(summary.tasks?.open);
+        const runningTasks = numberValue(summary.tasks?.in_progress);
+        const offlineAgents = numberValue(summary.agents?.offline);
 
         if (pendingClarifications > 0) {
           items.push({

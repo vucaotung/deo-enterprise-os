@@ -50,6 +50,13 @@ const unwrapList = <T>(payload: any): T[] => {
   return [];
 };
 
+const unwrapObject = <T>(payload: unknown): T => {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return (payload as { data: T }).data;
+  }
+  return payload as T;
+};
+
 const normalizeProjectStatus = (status?: string): Project['status'] => {
   switch (status) {
     case 'planning':
@@ -150,7 +157,7 @@ export const login = async (username: string, password: string): Promise<LoginRe
 
 export const getDashboardSummary = async (): Promise<DashboardSummary> => {
   const { data } = await api.get('/dashboard/summary');
-  return data;
+  return unwrapObject<DashboardSummary>(data);
 };
 
 export const getTasks = async (filters?: {

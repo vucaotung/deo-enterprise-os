@@ -86,6 +86,28 @@ export interface DashboardSummary {
   expenseCount: number;
   clientCount: number;
   taskCountByStatus: Record<string, number>;
+  tasks?: {
+    total: number;
+    completed: number;
+    open: number;
+    in_progress: number;
+  };
+  expenses?: {
+    total: number;
+    count: number;
+    approved: number;
+  };
+  leads?: {
+    total: number;
+    converted: number;
+  };
+  agents?: {
+    online: number;
+    offline: number;
+  };
+  clarifications?: {
+    pending: number;
+  };
   alerts?: Array<{ type: string; message: string }>;
 }
 
