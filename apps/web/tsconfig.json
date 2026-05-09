@@ -12,7 +12,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "moduleResolution": "bundler",
-    "ignoreDeprecations": "6.0",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
