@@ -22,8 +22,9 @@ router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) =
         [companyId]
       ),
       dbQuery(
-        `SELECT SUM(CAST(amount AS BIGINT)) as total, COUNT(*) as count,
-                SUM(CASE WHEN status = 'approved' THEN CAST(amount AS BIGINT) ELSE 0 END) as approved
+        `SELECT SUM(CAST(amount AS BIGINT)) as total,
+                COUNT(*) as count,
+                SUM(CAST(amount AS BIGINT)) as approved
          FROM deo.expenses WHERE company_id = $1`,
         [companyId]
       ),
@@ -96,7 +97,7 @@ router.get('/charts', authMiddleware, async (req: AuthRequest, res: Response) =>
       ),
       dbQuery(
         `SELECT DATE_TRUNC('month', expense_date)::date as month, SUM(CAST(amount AS BIGINT)) as total
-         FROM deo.expenses WHERE company_id = $1 AND status = 'approved' GROUP BY month ORDER BY month DESC LIMIT 12`,
+         FROM deo.expenses WHERE company_id = $1 GROUP BY month ORDER BY month DESC LIMIT 12`,
         [companyId]
       ),
       dbQuery(
