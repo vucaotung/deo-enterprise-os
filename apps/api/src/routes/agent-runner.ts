@@ -180,6 +180,17 @@ router.patch('/jobs/:id/status', async (req: ServiceRequest, res: Response) => {
       return res.status(400).json({ error: 'Invalid queue_state' });
     }
 
+    // Cancel race guard: once a job has settled into a terminal state (e.g. user
+    // hit Cancel in the webapp while claude.exe was still running), the daemon's
+    // late "done"/"dead" callback must not overwrite it. Reject with 409 so the
+    // runner can log and move on instead of resurrecting a cancelled job.
+    if (['done', 'dead', 'cancelled'].includes(job.queue_state)) {
+      return res.status(409).json({
+        error: 'agent_job already in terminal state',
+        current_state: job.queue_state,
+      });
+    }
+
     const result = await dbQuery(
       `UPDATE deo.agent_jobs
           SET queue_state = $1,

@@ -15,6 +15,7 @@ const AGENT_ID = process.env.AGENT_ID || '';
 const WORKDIR_ROOT = path.resolve(process.env.CLAUDE_CODE_WORKDIR_ROOT || process.cwd());
 const CLAUDE_COMMAND = process.env.CLAUDE_CODE_COMMAND || (process.platform === 'win32' ? 'claude.exe' : 'claude');
 const POLL_MS = Number(process.env.AGENT_RUNNER_POLL_MS || 5000);
+const HEARTBEAT_MS = Number(process.env.AGENT_RUNNER_HEARTBEAT_MS || 60000);
 const DEFAULT_TIMEOUT_MS = Number(process.env.CLAUDE_CODE_TIMEOUT_MS || 10 * 60 * 1000);
 const LOG_MAX = 16000;
 
@@ -146,6 +147,21 @@ const claim = () => apiFetch('/agent-runner/claim', {
   body: JSON.stringify({ runtime_type: RUNTIME_TYPE, company_id: COMPANY_ID || undefined, agent_id: AGENT_ID || undefined }),
 });
 
+// Pulse agents.last_heartbeat so the webapp's online/offline indicator stays
+// truthful and PR3's stuck-job sweeper has a reference for "agent went away".
+// Best-effort: heartbeat failure should not crash the runner.
+const heartbeat = async () => {
+  if (!AGENT_ID) return;
+  try {
+    await fetch(`${API_URL}/agents/${AGENT_ID}/heartbeat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('heartbeat failed:', error.message);
+  }
+};
+
 const runOnce = async () => {
   const claimed = await claim();
   if (!claimed?.job) return false;
@@ -167,6 +183,8 @@ const runOnce = async () => {
 
 const main = async () => {
   console.log(`Enterprise OS local runner online: ${API_URL}, runtime=${RUNTIME_TYPE}`);
+  await heartbeat();
+  setInterval(heartbeat, Math.max(15000, HEARTBEAT_MS)).unref();
   while (true) {
     try {
       await runOnce();
