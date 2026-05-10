@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { query as dbQuery } from '../db';
 import { ServiceRequest, serviceTokenMiddleware } from '../middleware/service-auth';
 import { popAgentJob } from '../orchestrator/dispatcher';
+import { emitNotification } from '../services/notify.service';
 
 const router = Router();
 const LOG_TAIL_MAX = 16384;
@@ -228,6 +229,41 @@ router.patch('/jobs/:id/status', async (req: ServiceRequest, res: Response) => {
         await dbQuery(`UPDATE deo.tasks SET execution_status = 'success', updated_at = NOW() WHERE id = $1`, [job.task_id]);
       } else if (executionStatus === 'failed') {
         await dbQuery(`UPDATE deo.tasks SET execution_status = 'failed', updated_at = NOW() WHERE id = $1`, [job.task_id]);
+      }
+
+      try {
+        const watchersResult = await dbQuery(
+          `SELECT created_by, assigned_to, title FROM deo.tasks WHERE id = $1`,
+          [job.task_id]
+        );
+        const taskRow = watchersResult.rows[0];
+        if (taskRow) {
+          const watcherIds = new Set<string>();
+          if (taskRow.created_by) watcherIds.add(taskRow.created_by);
+          if (taskRow.assigned_to) watcherIds.add(taskRow.assigned_to);
+          const notificationType =
+            executionStatus === 'succeeded' ? 'job_done' :
+            executionStatus === 'failed' ? 'review_required' :
+            'agent_update';
+          const title =
+            queueState === 'done' ? `Agent xong: ${taskRow.title}` :
+            queueState === 'cancelled' ? `Agent đã hủy: ${taskRow.title}` :
+            `Agent gặp lỗi: ${taskRow.title}`;
+          await Promise.all(
+            Array.from(watcherIds).map((uid) =>
+              emitNotification(uid, {
+                type: notificationType,
+                title,
+                body: queueState === 'done' ? 'Hoàn tất, kiểm tra kết quả.' : 'Cần review.',
+                link: `/tasks/${job.task_id}`,
+                entity_type: 'task',
+                entity_id: job.task_id,
+              })
+            )
+          );
+        }
+      } catch (notifyError) {
+        console.error('agent-runner notify failed', notifyError);
       }
     }
 

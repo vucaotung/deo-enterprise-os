@@ -5,6 +5,8 @@ import { requireMinRole } from '../middleware/require-role';
 import { AuditedRequest } from '../middleware/audit';
 import { v4 as uuidv4 } from 'uuid';
 import { createExecutionAndEnqueue } from './agent-jobs';
+import { pickAgentForTask } from '../services/agent-router.service';
+import { emitNotification } from '../services/notify.service';
 
 const router = Router();
 
@@ -94,43 +96,120 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.get('/preview-agent', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+    const rawTags = req.query.tags;
+    const tags = parseTagsParam(rawTags);
+    const picked = await pickAgentForTask({ tags });
+    res.json({ picked, tags });
+  } catch (error) {
+    console.error('Preview agent error', error);
+    res.status(500).json({ error: 'Failed to preview agent' });
+  }
+});
+
 router.post('/', authMiddleware, async (req: AuditedRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const { title, description, project_id, priority, due_date, estimated_hours, assigned_to } = req.body;
+    const {
+      title,
+      description,
+      project_id,
+      priority,
+      due_date,
+      estimated_hours,
+      assigned_to,
+      tags,
+      agent_id: explicitAgentId,
+    } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: 'Title is required' });
     }
 
     const taskId = uuidv4();
+    const normalizedTags = Array.isArray(tags) ? tags.filter((t: unknown) => typeof t === 'string') : [];
+
+    let agentId: string | null = explicitAgentId || null;
+    let routedReason: string | null = null;
+    if (!agentId) {
+      const picked = await pickAgentForTask({ tags: normalizedTags });
+      if (picked) {
+        agentId = picked.agent_id;
+        routedReason = picked.reason;
+      }
+    }
 
     await dbQuery(
-      `INSERT INTO deo.tasks (id, company_id, project_id, title, description, status, workflow_status, priority, created_by, assigned_to, due_date, estimated_hours, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())`,
-      [taskId, req.user.company_id, project_id || null, title, description || null, 'todo', 'todo', priority || 'medium', req.user.id, assigned_to || null, due_date || null, estimated_hours || null]
+      `INSERT INTO deo.tasks (id, company_id, project_id, title, description, status, workflow_status, priority, created_by, assigned_to, agent_id, tags, due_date, estimated_hours, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14, NOW(), NOW())`,
+      [
+        taskId,
+        req.user.company_id,
+        project_id || null,
+        title,
+        description || null,
+        'todo',
+        'todo',
+        priority || 'medium',
+        req.user.id,
+        assigned_to || null,
+        agentId,
+        JSON.stringify(normalizedTags),
+        due_date || null,
+        estimated_hours || null,
+      ]
     );
 
     req.auditData = {
       entity_type: 'task',
       entity_id: taskId,
-      new_values: { title, description, project_id, priority, workflow_status: 'todo' },
+      new_values: { title, description, project_id, priority, workflow_status: 'todo', agent_id: agentId, routed_reason: routedReason },
     };
+
+    if (assigned_to && assigned_to !== req.user.id) {
+      await emitNotification(assigned_to, {
+        type: 'assignment',
+        title: 'Bạn được gán một task mới',
+        body: title,
+        link: `/tasks/${taskId}`,
+        entity_type: 'task',
+        entity_id: taskId,
+      });
+    }
 
     const result = await dbQuery(
       `SELECT ${taskSelectExpr} FROM deo.tasks t LEFT JOIN deo.projects p ON p.id = t.project_id LEFT JOIN deo.users u ON u.id = t.assigned_to LEFT JOIN deo.agents a ON a.id = COALESCE(t.agent_id, t.assigned_to) WHERE t.id = $1`,
       [taskId]
     );
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json({ ...result.rows[0], routed_reason: routedReason });
   } catch (error) {
     console.error('Create task error', error);
     res.status(500).json({ error: 'Failed to create task' });
   }
 });
+
+function parseTagsParam(raw: unknown): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+  if (typeof raw === 'string') {
+    if (raw.trim().startsWith('[')) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+      } catch {
+        // fallthrough
+      }
+    }
+    return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  return [];
+}
 
 router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
@@ -227,6 +306,17 @@ router.patch('/:id', authMiddleware, async (req: AuditedRequest, res: Response) 
       old_values: oldTask,
       new_values: result.rows[0],
     };
+
+    if (assigned_to !== undefined && assigned_to && assigned_to !== oldTask.assigned_to && assigned_to !== req.user.id) {
+      await emitNotification(assigned_to, {
+        type: 'assignment',
+        title: 'Bạn được gán vào task',
+        body: result.rows[0]?.title || taskResult.rows[0]?.title || 'Task',
+        link: `/tasks/${taskId}`,
+        entity_type: 'task',
+        entity_id: taskId,
+      });
+    }
 
     res.json(taskResult.rows[0]);
   } catch (error) {

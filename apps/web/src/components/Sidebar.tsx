@@ -11,7 +11,6 @@ import {
   Menu,
   X,
   LogOut,
-  Inbox,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -23,7 +22,6 @@ export const Sidebar = () => {
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/' },
-    { icon: Inbox, label: 'Requests', path: '/requests' },
     { icon: CheckSquare, label: 'Công việc', path: '/tasks' },
     { icon: FolderKanban, label: 'Projects', path: '/projects' },
     { icon: Users, label: 'CRM', path: '/crm' },

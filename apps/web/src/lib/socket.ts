@@ -2,12 +2,18 @@ import { io, Socket } from 'socket.io-client';
 
 let socket: Socket | null = null;
 
+const SOCKET_URL =
+  (import.meta as any).env?.VITE_SOCKET_URL ||
+  ((import.meta as any).env?.VITE_API_URL
+    ? String((import.meta as any).env.VITE_API_URL).replace(/\/api\/?$/, '')
+    : 'http://localhost:3001');
+
 export const initSocket = (token: string): Socket => {
   if (socket) {
     return socket;
   }
 
-  socket = io({
+  socket = io(SOCKET_URL, {
     path: '/socket.io',
     auth: {
       token,

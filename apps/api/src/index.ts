@@ -25,9 +25,12 @@ import telegramRoutes from './routes/telegram';
 import backofficeRoutes from './routes/backoffice';
 import mcpRoutes from './routes/mcp';
 import requestsRoutes from './routes/requests';
+import taskCommentsRoutes from './routes/task-comments';
+import notificationsRoutes from './routes/notifications';
 
 import { auditMiddleware } from './middleware/audit';
 import { authMiddleware } from './middleware/auth';
+import { setIo } from './realtime';
 
 const app = express();
 const httpServer = createServer(app);
@@ -37,6 +40,8 @@ const io = new SocketIOServer(httpServer, {
     methods: ['GET', 'POST'],
   },
 });
+
+setIo(io);
 
 const PORT = process.env.PORT || 3001;
 
@@ -78,6 +83,8 @@ app.use('/api/agent-runner', agentRunnerRoutes);
 app.use('/api/telegram', telegramRoutes);
 app.use('/api/backoffice', backofficeRoutes);
 app.use('/api/requests', requestsRoutes);
+app.use('/api/tasks', authMiddleware, taskCommentsRoutes);
+app.use('/api/notifications', authMiddleware, notificationsRoutes);
 app.use('/mcp', mcpRoutes);
 
 io.on('connection', (socket) => {
@@ -85,7 +92,18 @@ io.on('connection', (socket) => {
 
   socket.on('join-conversation', (conversationId: string) => {
     socket.join(`conversation:${conversationId}`);
-    console.log(`Client ${socket.id} joined conversation ${conversationId}`);
+  });
+
+  socket.on('join-user-room', (userId: string) => {
+    if (typeof userId === 'string' && userId) socket.join(`user:${userId}`);
+  });
+
+  socket.on('join-task-room', (taskId: string) => {
+    if (typeof taskId === 'string' && taskId) socket.join(`task:${taskId}`);
+  });
+
+  socket.on('leave-task-room', (taskId: string) => {
+    if (typeof taskId === 'string' && taskId) socket.leave(`task:${taskId}`);
   });
 
   socket.on('message', (data: any) => {
