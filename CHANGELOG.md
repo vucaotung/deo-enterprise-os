@@ -1,5 +1,69 @@
 # CHANGELOG
 
+## [4.0.0-plan] — 2026-05-05 (PLAN ONLY)
+
+### 🎯 Strategic Pivot — Fork Paperclip + OpenClaw Upstream
+
+Chuyển từ "build từ đầu" (plan v3 GoClaw) sang "fork + extend" để tiết kiệm 50-60% engineering effort.
+
+#### Decision
+- ❌ **DROP GoClaw fork** — quay lại OpenClaw upstream
+- ✅ **Fork [paperclipai/paperclip](https://github.com/paperclipai/paperclip) (MIT)** làm orchestration core (UI + governance + budget + audit + multi-tenancy + scheduler)
+- ✅ **OpenClaw upstream** làm agent runtime (multi-provider per-agent + native VN channels + memory engines + dreaming)
+- ✅ **n8n** thu hẹp về workflow tĩnh (ETL không-AI)
+- ✅ **VPS Docker** production, local Docker dev qua `pnpm smoke:openclaw-docker-ui`
+
+#### Key findings từ docs research
+
+**Paperclip native (0 code):** identity/login UI, multi-tenant Company, Issues board (Jira-like), Routines (cron + webhook), Approvals UI, Budget tracking dashboard, Activity Log, Skills library, Org Chart, Export/Import companies, Workspaces, Secrets UI.
+
+**OpenClaw native (0 code):** Telegram + Zalo (cả Marketplace bot + Zalo personal) + WhatsApp + 20+ channels bundled plugins, multi-provider per-agent (Anthropic/OpenAI/Google/Codex/OpenCode/GLM/MiniMax/Qwen/local CLI), API key rotation, model failover chain với cooldown exponential, 4 memory engines (builtin/QMD/Honcho/LanceDB), 3-phase dreaming (Light/Deep/REM), per-agent isolated workspace + auth profile + sessions, SOUL.md/AGENTS.md/USER.md.
+
+**Drift prevention rule**: Paperclip = single source of truth cho schedule. OpenClaw automation (cron/standing-orders/taskflow/background-tasks) **TẮT HẾT**. Hooks giữ cho channel inbound. Mọi heartbeat có `runId` Paperclip generate.
+
+#### Effort estimate
+- Plan v3 GoClaw: **5-7 tháng**
+- Plan v4 Paperclip+OpenClaw: **3.5-5 tháng** (~50-60% saving)
+- Sprint 1 tuần (P0' + P1' + P2' rút gọn): MVP working bot Telegram/Zalo + multi-provider agents
+
+#### Docs added
+- `docs/ENTERPRISE_HUMAN_AI_HYBRID_OS_PLAN_v4_PAPERCLIP_OPENCLAW.md` — Plan đầy đủ 933 dòng:
+  - Paperclip out-of-box features (90% Phase 0 không cần code)
+  - OpenClaw capabilities confirmed (multi-provider, channels, memory, dreaming)
+  - Re-balance trách nhiệm Paperclip ↔ OpenClaw
+  - Architecture diagram (VPS Docker 7-service stack)
+  - Heartbeat/cron drift prevention quy tắc + verification
+  - Phased plan 9 phases với estimate
+  - Migration v0.2.3 → v4
+  - 15 Open Questions cho product/dev decision
+- `docs/V4_1_WEEK_SPRINT_CHECKLIST.md` — Sprint MVP 7 ngày:
+  - Day 1: Fork & Bootstrap
+  - Day 2: OpenClaw Multi-Agent Setup
+  - Day 3: Channels Native (Telegram + Zalo)
+  - Day 4: Memory + Skills + DEO Domain
+  - Day 5: VPS Deployment + Production Stack
+  - Day 6: Hardening + Drift Verification + Tests
+  - Day 7: Documentation + Demo + Handoff
+
+#### Sprint 1 tuần — scope đã chốt (2026-05-05)
+- **Goal**: MVP working bot
+- **Channel**: Telegram only (Zalo + WhatsApp DEFERRED sang sprint 2)
+- **Agents**: 5 agents × mixed providers
+  - `ceo` → Claude Opus 4.7
+  - `crm-agent` → GPT-5.4-mini
+  - `finance-agent` → Claude Sonnet 4.6
+  - `hr-agent` → GPT-5.4-mini
+  - `support-agent` → GPT-5.4-mini
+- **Deploy**: VPS HTTPS Day 5
+- **DoD**: User gửi Telegram → routing keyword → 3 agent khác provider reply → Issue + Activity Log + Budget cost event tag đúng provider
+
+#### Status
+- Plan: ✅ Approved by stakeholder
+- Sprint scope: ✅ Confirmed
+- Implementation: 🚀 Awaiting Day 1 prerequisites (VPS + domain + tokens)
+
+---
+
 ## [1.2.0] — Planned (May 2026)
 
 ### 🧠 2nd Brain Integration
