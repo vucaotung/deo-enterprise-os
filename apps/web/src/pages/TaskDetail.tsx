@@ -1,19 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Calendar, ListChecks, UserRound } from 'lucide-react';
 import type { Task } from '@/types';
-import { getTask } from '@/api/client';
+import { addTaskComment, getTask, getTaskComments, type TaskComment } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { Badge } from '@/components/Badge';
 import { ExecutionsList } from '@/components/ExecutionsList';
+import { CommentThread } from '@/components/CommentThread';
+import { CommentComposer } from '@/components/CommentComposer';
+import { getSocket, initSocket } from '@/lib/socket';
 import { formatDate, getPriorityColor, getStatusColor, getStatusLabel, cn } from '@/lib/utils';
 
 interface OutletContext {
   setPageTitle: (title: string) => void;
 }
 
-type Tab = 'overview' | 'executions';
+type Tab = 'overview' | 'comments' | 'executions';
 
 export const TaskDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,15 +24,49 @@ export const TaskDetail = () => {
   const { setPageTitle } = useOutletContext<OutletContext>();
   const [tab, setTab] = useState<Tab>('overview');
 
+  const queryClient = useQueryClient();
+
   const { data: task, isLoading, isError, error } = useQuery<Task>({
     queryKey: ['task', id],
     queryFn: () => getTask(id!),
     enabled: !!id,
   });
 
+  const { data: comments = [] } = useQuery<TaskComment[]>({
+    queryKey: ['task-comments', id],
+    queryFn: () => getTaskComments(id!),
+    enabled: !!id,
+  });
+
+  const addCommentMutation = useMutation({
+    mutationFn: (content: string) => addTaskComment(id!, { content }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task-comments', id] });
+    },
+  });
+
   useEffect(() => {
     setPageTitle(task?.title ? `Task • ${task.title}` : 'Chi tiết công việc');
   }, [task?.title, setPageTitle]);
+
+  useEffect(() => {
+    if (!id) return;
+    const token = localStorage.getItem('token') || localStorage.getItem('auth_token') || '';
+    const socket = getSocket() || initSocket(token);
+    socket.emit('join-task-room', id);
+    const onComment = (incoming: TaskComment) => {
+      if (incoming.task_id !== id) return;
+      queryClient.setQueryData<TaskComment[]>(['task-comments', id], (prev = []) => {
+        if (prev.some((c) => c.id === incoming.id)) return prev;
+        return [...prev, incoming];
+      });
+    };
+    socket.on('comment', onComment);
+    return () => {
+      socket.off('comment', onComment);
+      socket.emit('leave-task-room', id);
+    };
+  }, [id, queryClient]);
 
   if (!id) {
     return (
@@ -92,6 +129,18 @@ export const TaskDetail = () => {
             </button>
             <button
               type="button"
+              onClick={() => setTab('comments')}
+              className={cn(
+                'px-4 py-2 text-sm font-medium border-b-2 -mb-px',
+                tab === 'comments'
+                  ? 'border-slate-900 text-slate-900'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              )}
+            >
+              Bình luận{comments.length > 0 && ` (${comments.length})`}
+            </button>
+            <button
+              type="button"
               onClick={() => setTab('executions')}
               className={cn(
                 'px-4 py-2 text-sm font-medium border-b-2 -mb-px',
@@ -137,6 +186,20 @@ export const TaskDetail = () => {
                       Cập nhật: {formatDate(task.updated_at)}
                     </div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {tab === 'comments' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Bình luận</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <CommentThread comments={comments} />
+                  <CommentComposer onSubmit={(content) => addCommentMutation.mutateAsync(content)} />
                 </div>
               </CardContent>
             </Card>

@@ -397,4 +397,92 @@ export const addRequestComment = async (
   return data;
 };
 
+// ============================================================
+// Task comments
+// ============================================================
+
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  parent_id: string | null;
+  author_type: 'user' | 'agent';
+  author_id: string;
+  author_display?: string | null;
+  content: string;
+  content_type: string;
+  action_result: unknown | null;
+  mentions: string[];
+  source: string;
+  created_at: string;
+}
+
+export const getTaskComments = async (taskId: string): Promise<TaskComment[]> => {
+  const { data } = await api.get(`/tasks/${taskId}/comments`);
+  return unwrapList<TaskComment>(data);
+};
+
+export const addTaskComment = async (
+  taskId: string,
+  payload: { content: string; parent_id?: string | null; content_type?: string }
+): Promise<TaskComment> => {
+  const { data } = await api.post(`/tasks/${taskId}/comments`, payload);
+  return data;
+};
+
+// ============================================================
+// Notifications
+// ============================================================
+
+export interface NotificationRow {
+  id: string;
+  user_id: string;
+  type: 'mention' | 'assignment' | 'agent_update' | 'review_required' | 'job_done' | 'comment';
+  title: string;
+  body: string | null;
+  link: string | null;
+  entity_type: string | null;
+  entity_id: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
+export const getNotifications = async (params?: { unreadOnly?: boolean; limit?: number }): Promise<NotificationRow[]> => {
+  const { data } = await api.get('/notifications', {
+    params: {
+      unreadOnly: params?.unreadOnly ? 'true' : undefined,
+      limit: params?.limit,
+    },
+  });
+  return unwrapList<NotificationRow>(data);
+};
+
+export const getUnreadNotificationCount = async (): Promise<number> => {
+  const { data } = await api.get('/notifications/unread-count');
+  return Number(data?.count ?? 0);
+};
+
+export const markNotificationRead = async (id: string): Promise<void> => {
+  await api.patch(`/notifications/${id}/read`);
+};
+
+export const markAllNotificationsRead = async (): Promise<void> => {
+  await api.post('/notifications/read-all');
+};
+
+// ============================================================
+// Agent routing
+// ============================================================
+
+export interface PreviewAgentResponse {
+  picked: { agent_id: string; name: string; display_name: string | null; reason: string } | null;
+  tags: string[];
+}
+
+export const previewAgent = async (tags: string[]): Promise<PreviewAgentResponse> => {
+  const { data } = await api.get('/tasks/preview-agent', {
+    params: { tags: tags.join(',') },
+  });
+  return data;
+};
+
 export default api;

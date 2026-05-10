@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { ListFilter, Plus, Rows3, SquareKanban } from 'lucide-react';
-import type { Task } from '@/types';
-import { getTasks, updateTask } from '@/api/client';
+import { ListFilter, Plus, Rows3, SquareKanban, Bot } from 'lucide-react';
+import type { Task, Agent } from '@/types';
+import { createTask, getAgents, getTasks, previewAgent, updateTask } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { SlidePanel } from '@/components/SlidePanel';
 import { Modal } from '@/components/Modal';
@@ -143,6 +143,16 @@ export const Tasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [usingFallback, setUsingFallback] = useState(false);
+  const [createForm, setCreateForm] = useState<{
+    title: string;
+    description: string;
+    tagsInput: string;
+    overrideAgentId: string;
+  }>({ title: '', description: '', tagsInput: '', overrideAgentId: '' });
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [agentList, setAgentList] = useState<Agent[]>([]);
+  const [suggestedAgent, setSuggestedAgent] = useState<{ name: string; reason: string } | null>(null);
 
   useEffect(() => {
     setPageTitle('Công việc');
@@ -186,8 +196,80 @@ export const Tasks = () => {
   const inProgressTasks = tasks.filter((task) => task.status === 'in_progress').length;
   const completedTasks = tasks.filter((task) => task.status === 'completed').length;
 
-  const handleAddTask = () => {
-    setShowAddModal(false);
+  useEffect(() => {
+    if (!showAddModal) return;
+    let cancelled = false;
+    getAgents().then((rows) => {
+      if (!cancelled) setAgentList(rows);
+    }).catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [showAddModal]);
+
+  useEffect(() => {
+    if (!showAddModal) return;
+    const tagList = createForm.tagsInput
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (tagList.length === 0) {
+      setSuggestedAgent(null);
+      return;
+    }
+    let cancelled = false;
+    const handle = window.setTimeout(async () => {
+      try {
+        const result = await previewAgent(tagList);
+        if (cancelled) return;
+        setSuggestedAgent(
+          result.picked
+            ? { name: result.picked.display_name || result.picked.name, reason: result.picked.reason }
+            : null
+        );
+      } catch {
+        if (!cancelled) setSuggestedAgent(null);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [createForm.tagsInput, showAddModal]);
+
+  const resetCreateForm = () => {
+    setCreateForm({ title: '', description: '', tagsInput: '', overrideAgentId: '' });
+    setCreateError(null);
+    setSuggestedAgent(null);
+  };
+
+  const handleAddTask = async () => {
+    if (!createForm.title.trim()) {
+      setCreateError('Tiêu đề là bắt buộc.');
+      return;
+    }
+    const tags = createForm.tagsInput
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      const created = await createTask({
+        title: createForm.title.trim(),
+        description: createForm.description.trim() || undefined,
+        ...(tags.length > 0 ? { tags } as any : {}),
+        ...(createForm.overrideAgentId ? { agent_id: createForm.overrideAgentId } as any : {}),
+      } as any);
+      setTasks((prev) => [created, ...prev]);
+      resetCreateForm();
+      setShowAddModal(false);
+    } catch (error) {
+      console.error('create task failed', error);
+      setCreateError('Không tạo được task. Vui lòng thử lại.');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const openEditModal = (task: Task) => {
@@ -548,7 +630,10 @@ export const Tasks = () => {
 
       <Modal
         isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        onClose={() => {
+          setShowAddModal(false);
+          resetCreateForm();
+        }}
         title="Tạo công việc mới"
         size="lg"
       >
@@ -557,6 +642,8 @@ export const Tasks = () => {
             <label className="block text-sm font-medium text-slate-900 mb-2">Tiêu đề</label>
             <input
               type="text"
+              value={createForm.title}
+              onChange={(e) => setCreateForm((f) => ({ ...f, title: e.target.value }))}
               placeholder="Nhập tiêu đề công việc..."
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-deo-accent focus:border-transparent"
             />
@@ -565,17 +652,65 @@ export const Tasks = () => {
           <div>
             <label className="block text-sm font-medium text-slate-900 mb-2">Mô tả</label>
             <textarea
+              value={createForm.description}
+              onChange={(e) => setCreateForm((f) => ({ ...f, description: e.target.value }))}
               placeholder="Mô tả chi tiết công việc..."
               rows={4}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-deo-accent focus:border-transparent"
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-slate-900 mb-2">
+              Tags / Capability (cách nhau bởi dấu phẩy)
+            </label>
+            <input
+              type="text"
+              value={createForm.tagsInput}
+              onChange={(e) => setCreateForm((f) => ({ ...f, tagsInput: e.target.value }))}
+              placeholder="vd: legal_draft, contract_review"
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-deo-accent focus:border-transparent"
+            />
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Bot className="h-4 w-4 text-deo-accent" />
+              <span className="font-medium text-slate-700">Đề xuất agent:</span>
+              <span className="text-slate-900">
+                {suggestedAgent ? suggestedAgent.name : 'Tự động chọn khi lưu'}
+              </span>
+              {suggestedAgent && (
+                <span className="text-xs text-slate-400">({suggestedAgent.reason})</span>
+              )}
+            </div>
+            <div className="mt-2">
+              <label className="block text-xs font-medium text-slate-500 mb-1">Đổi agent (tuỳ chọn)</label>
+              <select
+                value={createForm.overrideAgentId}
+                onChange={(e) => setCreateForm((f) => ({ ...f, overrideAgentId: e.target.value }))}
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-deo-accent focus:border-transparent"
+              >
+                <option value="">— Để hệ thống chọn —</option>
+                {agentList.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.emoji} {a.name} ({a.status})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {createError && (
+            <p className="text-sm text-red-600">{createError}</p>
+          )}
+
           <button
             onClick={handleAddTask}
-            className="w-full bg-deo-accent text-white py-2 rounded-lg font-medium hover:bg-cyan-600 transition-colors"
+            disabled={isCreating}
+            className="w-full bg-deo-accent text-white py-2 rounded-lg font-medium hover:bg-cyan-600 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Tạo công việc
+            {isCreating ? 'Đang tạo...' : 'Tạo công việc'}
           </button>
         </div>
       </Modal>
