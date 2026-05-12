@@ -1,107 +1,70 @@
-import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
-  CheckSquare,
+  Target,
   FolderKanban,
-  Users,
-  DollarSign,
-  Zap,
-  BookOpen,
-  Menu,
-  X,
-  LogOut,
+  ListChecks,
+  ShieldCheck,
+  Bot,
+  ExternalLink,
 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { CompanySwitcher } from './CompanySwitcher';
 
-export const Sidebar = () => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const { logout, user } = useAuth();
-  const navigate = useNavigate();
-  const displayName = (user as any)?.full_name || user?.username || 'User';
+const NAV = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/goals', label: 'Goals', icon: Target },
+  { to: '/projects', label: 'Projects', icon: FolderKanban },
+  { to: '/issues', label: 'Issues', icon: ListChecks },
+  { to: '/approvals', label: 'Approvals', icon: ShieldCheck },
+  { to: '/agents', label: 'Agents', icon: Bot },
+];
 
-  const navItems = [
-    { icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/' },
-    { icon: CheckSquare, label: 'Công việc', path: '/tasks' },
-    { icon: FolderKanban, label: 'Projects', path: '/projects' },
-    { icon: Users, label: 'CRM', path: '/crm' },
-    { icon: DollarSign, label: 'Tài chính', path: '/finance' },
-    { icon: Zap, label: 'Agents', path: '/agents' },
-    { icon: BookOpen, label: 'Sổ ghi chép', path: '/notebooks' },
-  ];
-
+export function Sidebar() {
   return (
-    <>
-      <nav
-        className={`fixed left-0 top-0 bottom-0 bg-deo-dark text-white transition-all duration-300 z-40 ${
-          isExpanded ? 'w-60' : 'w-16'
-        }`}
-      >
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between p-4 border-b border-slate-700">
-            {isExpanded && <span className="text-xl font-bold">Dẹo</span>}
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-white hover:bg-slate-700 p-1 rounded transition-colors"
-            >
-              {isExpanded ? <X size={20} /> : <Menu size={20} />}
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            <ul className="p-4 space-y-2">
-              {navItems.map(({ icon: Icon, label, path }) => (
-                <li key={path}>
-                  <NavLink
-                    to={path}
-                    end={path === '/'}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                        isActive
-                          ? 'bg-deo-accent text-white'
-                          : 'text-slate-300 hover:bg-slate-700'
-                      }`
-                    }
-                    title={label}
-                  >
-                    <Icon size={20} />
-                    {isExpanded && <span className="text-sm">{label}</span>}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="border-t border-slate-700 p-4 space-y-2">
-            <button
-              onClick={() => navigate('/profile')}
-              className="w-full flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-700 rounded-lg transition-colors"
-              title="Hồ sơ cá nhân"
-            >
-              <div className="w-6 h-6 bg-deo-accent rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
-                {displayName.charAt(0).toUpperCase()}
-              </div>
-              {isExpanded && (
-                <span className="text-sm truncate">{displayName}</span>
-              )}
-            </button>
-            <button
-              onClick={() => logout()}
-              className="w-full flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-700 rounded-lg transition-colors"
-              title="Đăng xuất"
-            >
-              <LogOut size={20} />
-              {isExpanded && <span className="text-sm">Đăng xuất</span>}
-            </button>
-          </div>
+    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
+      <div className="border-b border-slate-200 p-4">
+        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Worker Console
         </div>
+        <CompanySwitcher />
+      </div>
+
+      <nav className="flex-1 overflow-y-auto p-2">
+        <ul className="space-y-1">
+          {NAV.map(({ to, label, icon: Icon, end }) => (
+            <li key={to}>
+              <NavLink
+                to={to}
+                end={end}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-deo-accent/10 text-deo-accent'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`
+                }
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
       </nav>
 
-      <div
-        className={`transition-all duration-300 ${
-          isExpanded ? 'ml-60' : 'ml-16'
-        }`}
-      />
-    </>
+      <div className="border-t border-slate-200 p-3 text-xs text-slate-500">
+        <a
+          href="http://localhost:3100"
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-1.5 hover:text-slate-800"
+        >
+          Paperclip UI <ExternalLink className="h-3 w-3" />
+        </a>
+        <p className="mt-1 text-[11px] text-slate-400">
+          Adapters, secrets, workspace controls live there.
+        </p>
+      </div>
+    </aside>
   );
-};
+}

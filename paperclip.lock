@@ -1,0 +1,5 @@
+repo=https://github.com/paperclipai/paperclip
+ref=c445e5925628d11bf59d52604b8aa63a6e9aa800
+verified_at=2026-05-12
+notes=Pinned during the deo→Paperclip rebuild. Bump after re-running the
+       end-to-end smoke test (see docs/REBUILD.md §Verification).

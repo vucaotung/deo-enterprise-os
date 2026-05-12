@@ -1,190 +1,181 @@
-export interface User {
-  id: string;
-  username: string;
-  email: string;
-}
+// Paperclip API response shapes used by the Worker Console.
+// Mirrors docs/PAPERCLIP_API.md and paperclip/packages/shared/src/constants.ts.
 
-export interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  status: 'todo' | 'in_progress' | 'completed' | 'cancelled';
-  priority?: 'low' | 'medium' | 'high';
-  project_id?: string;
-  project_name?: string;
-  assigned_to?: string;
-  assignee_name?: string;
-  due_date?: string;
-  created_at: string;
-  updated_at: string;
-}
+export type IssueStatus =
+  | 'backlog'
+  | 'todo'
+  | 'in_progress'
+  | 'in_review'
+  | 'blocked'
+  | 'done'
+  | 'cancelled';
 
-export interface Expense {
-  id: string;
-  company_id: string;
-  category_id: string;
-  account_id: string;
-  user_id?: string;
-  amount: number;
-  description?: string;
-  date: string;
-  type: string;
-  status: string;
-  attachment_url?: string;
-  created_at: string;
-  updated_at: string;
-}
+export type GoalLevel = 'company' | 'team' | 'agent' | 'task';
+export type GoalStatus = 'planned' | 'active' | 'achieved' | 'cancelled';
 
-export interface Client {
+export type ProjectStatus =
+  | 'backlog'
+  | 'planned'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled';
+
+export type ApprovalType =
+  | 'hire_agent'
+  | 'approve_ceo_strategy'
+  | 'budget_override_required'
+  | 'request_board_approval';
+
+export type ApprovalStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'revision_requested';
+
+export type AgentStatus =
+  | 'pending_approval'
+  | 'active'
+  | 'paused'
+  | 'terminated'
+  | 'error';
+
+export type ActorType = 'user' | 'agent' | 'system';
+
+export interface Company {
   id: string;
   name: string;
-  code?: string;
-  phone?: string;
-  email?: string;
-  company?: string;
-  source?: string;
-  status: 'active' | 'inactive';
-  owner_id?: string;
-  notes?: string;
-  created_at: string;
-  updated_at: string;
+  shortname?: string;
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export type ProjectStatus = 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled';
-export type ProjectPriority = 'low' | 'medium' | 'high';
+export interface Goal {
+  id: string;
+  companyId: string;
+  title: string;
+  description?: string | null;
+  level: GoalLevel;
+  status: GoalStatus;
+  parentId?: string | null;
+  ownerAgentId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface Project {
   id: string;
-  company_id: string;
-  client_id?: string;
-  owner_id?: string;
+  companyId: string;
+  shortname?: string;
   name: string;
-  code?: string;
-  description?: string;
+  description?: string | null;
   status: ProjectStatus;
-  priority: ProjectPriority;
-  start_date?: string;
-  due_date?: string;
-  completed_at?: string;
-  created_at: string;
-  updated_at: string;
-  task_summary?: {
-    total: number;
-    todo: number;
-    in_progress: number;
-    completed: number;
-    cancelled: number;
-  };
-  open_clarifications?: number;
-  progress_percent?: number;
-  client?: Client;
-  owner?: User;
+  goalIds: string[];
+  leadAgentId?: string | null;
+  targetDate?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface DashboardSummary {
-  taskCount: number;
-  expenseCount: number;
-  clientCount: number;
-  taskCountByStatus: Record<string, number>;
-  tasks?: {
-    total: number;
-    completed: number;
-    open: number;
-    in_progress: number;
-  };
-  expenses?: {
-    total: number;
-    count: number;
-    approved: number;
-  };
-  leads?: {
-    total: number;
-    converted: number;
-  };
-  agents?: {
-    online: number;
-    offline: number;
-  };
-  clarifications?: {
-    pending: number;
-  };
-  alerts?: Array<{ type: string; message: string }>;
+export interface Issue {
+  id: string;
+  companyId: string;
+  projectId?: string | null;
+  parentId?: string | null;
+  shortname?: string;
+  title: string;
+  description?: string | null;
+  status: IssueStatus;
+  assignedAgentId?: string | null;
+  labels?: string[];
+  priority?: number;
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string | null;
+}
+
+export interface IssueComment {
+  id: string;
+  issueId: string;
+  authorType: ActorType;
+  authorId: string;
+  authorDisplay?: string;
+  body: string;
+  mentions?: string[];
+  createdAt: string;
+}
+
+export interface HeartbeatRun {
+  id: string;
+  agentId: string;
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  issueIds: string[];
+}
+
+export interface ActivityEntry {
+  id: string | number;
+  companyId: string;
+  actorType: ActorType;
+  actorId: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  agentId?: string | null;
+  runId?: string | null;
+  details?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface Approval {
+  id: string;
+  companyId: string;
+  type: ApprovalType;
+  status: ApprovalStatus;
+  proposerAgentId?: string | null;
+  payload: Record<string, unknown>;
+  linkedIssueIds: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Agent {
   id: string;
+  companyId: string;
   name: string;
-  emoji: string;
-  capabilities: string[];
-  status: 'online' | 'sleeping' | 'offline';
-  active_tasks: number;
-  completed_today: number;
-  tokens_used: number;
-  last_heartbeat: string;
-  company_id: string;
+  role?: string | null;
+  status: AgentStatus;
+  adapterType: string;
+  managerId?: string | null;
+  reportIds?: string[];
+  lastHeartbeatAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface LoginResponse {
-  token: string;
-  user: User;
+export interface DashboardSnapshot {
+  agents: { active: number; running: number; paused: number; error: number };
+  tasks: { open: number; inProgress: number; blocked: number; completed: number };
+  costs: { monthSpend: number; monthBudget: number; utilization: number };
+  budgets: { activeIncidents: number; pendingApprovals: number; pausedResources: number };
 }
 
-export type TaskExecutionStatus =
-  | 'pending'
-  | 'running'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled'
-  | 'needs_review';
+export type LiveEventType =
+  | 'heartbeat.run.queued'
+  | 'heartbeat.run.status'
+  | 'heartbeat.run.event'
+  | 'heartbeat.run.log'
+  | 'agent.status'
+  | 'activity.logged'
+  | 'plugin.ui.updated'
+  | 'plugin.worker.crashed'
+  | 'plugin.worker.restarted';
 
-export type AgentJobQueueState =
-  | 'queued'
-  | 'claimed'
-  | 'running'
-  | 'done'
-  | 'dead'
-  | 'cancelled';
-
-export interface TaskExecutionListRow {
-  id: string;
-  task_id: string;
-  parent_execution_id?: string | null;
-  attempt_number: number;
-  status: TaskExecutionStatus;
-  trigger_reason?: string | null;
-  triggered_by?: string | null;
-  started_at?: string | null;
-  finished_at?: string | null;
-  created_at: string;
-  updated_at: string;
-  agent_job_id?: string | null;
-  agent_job_queue_state?: AgentJobQueueState | null;
-  agent_job_runtime_type?: string | null;
-  agent_job_agent_id?: string | null;
-  agent_job_tokens_in?: number | null;
-  agent_job_tokens_out?: number | null;
-  agent_job_cost_usd?: number | null;
-}
-
-export interface AgentJob {
-  id: string;
-  execution_id: string;
-  sequence_index: number;
-  agent_id?: string | null;
-  runtime_type: string;
-  queue_name?: string | null;
-  queue_state: AgentJobQueueState;
-  input?: Record<string, unknown> | null;
-  output?: Record<string, unknown> | null;
-  log_tail?: string | null;
-  logs_url?: string | null;
-  tokens_in?: number | null;
-  tokens_out?: number | null;
-  cost_usd?: number | null;
-  started_at?: string | null;
-  finished_at?: string | null;
-  created_at: string;
-  updated_at: string;
-  task_id?: string;
-  task_title?: string;
+export interface LiveEvent<P = Record<string, unknown>> {
+  id: number;
+  companyId: string;
+  type: LiveEventType;
+  createdAt: string;
+  payload: P;
 }

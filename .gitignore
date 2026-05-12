@@ -9,3 +9,7 @@ coverage/
 *.tgz
 pg_data/
 redis_data/
+
+paperclip/
+.hermes/
+archive/

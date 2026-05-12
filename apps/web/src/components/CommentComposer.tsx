@@ -1,17 +1,17 @@
-import { useState, KeyboardEvent } from 'react';
+import { KeyboardEvent, useState } from 'react';
 import { Send } from 'lucide-react';
 
 interface CommentComposerProps {
-  onSubmit: (content: string) => Promise<void> | void;
+  onSubmit: (body: string) => Promise<unknown>;
   placeholder?: string;
   disabled?: boolean;
 }
 
-export const CommentComposer = ({
+export function CommentComposer({
   onSubmit,
-  placeholder = 'Viết bình luận, dùng @ để nhắc người khác… (Ctrl+Enter để gửi)',
+  placeholder = 'Viết bình luận. (Ctrl+Enter để gửi)',
   disabled,
-}: CommentComposerProps) => {
+}: CommentComposerProps) {
   const [value, setValue] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -46,7 +46,7 @@ export const CommentComposer = ({
         className="w-full resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-deo-accent focus:outline-none focus:ring-1 focus:ring-deo-accent disabled:bg-slate-50"
       />
       <div className="flex items-center justify-between text-xs text-slate-400">
-        <span>Hỗ trợ @username để nhắc người khác.</span>
+        <span>@agent-name → wake agent. Ctrl+Enter để gửi.</span>
         <button
           type="button"
           onClick={() => void send()}
@@ -59,6 +59,4 @@ export const CommentComposer = ({
       </div>
     </div>
   );
-};
-
-export default CommentComposer;
+}

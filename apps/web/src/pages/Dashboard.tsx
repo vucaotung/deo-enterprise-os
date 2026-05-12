@@ -1,247 +1,116 @@
-import { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { DashboardSummary, DashboardCharts } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
-import { Badge } from '@/components/Badge';
-import { TrendingUp, TrendingDown } from 'lucide-react';
-import {
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
-import { formatCurrency, formatTimeAgo } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { paperclip } from '@/api/paperclip';
+import { useActiveCompany } from '@/lib/active-company';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/Card';
+import { EmptyState } from '@/components/EmptyState';
+import { PageHeader } from '@/components/PageHeader';
+import { LayoutDashboard } from 'lucide-react';
 
-interface OutletContext {
-  setPageTitle: (title: string) => void;
-}
+export function DashboardPage() {
+  const { id: companyId } = useActiveCompany();
 
-const KPICard = ({
-  icon: Icon,
-  title,
-  value,
-  trend,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  value: string | number;
-  trend?: number;
-}) => {
-  const isTrendUp = trend && trend > 0;
-
-  return (
-    <Card className="p-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-slate-600 mb-1">{title}</p>
-          <p className="text-2xl font-bold text-slate-900">{value}</p>
-        </div>
-        <div className="text-slate-400">{Icon}</div>
-      </div>
-      {trend !== undefined && (
-        <div className="mt-2 flex items-center gap-1">
-          {isTrendUp ? (
-            <TrendingUp size={16} className="text-green-600" />
-          ) : (
-            <TrendingDown size={16} className="text-red-600" />
-          )}
-          <span
-            className={`text-xs font-medium ${
-              isTrendUp ? 'text-green-600' : 'text-red-600'
-            }`}
-          >
-            {Math.abs(trend)}%
-          </span>
-        </div>
-      )}
-    </Card>
-  );
-};
-
-export const Dashboard = () => {
-  const { setPageTitle } = useOutletContext<OutletContext>();
-  const [mockSummary] = useState<DashboardSummary>({
-    taskCount: 24,
-    expenseCount: 12,
-    clientCount: 8,
-    taskCountByStatus: {
-      todo: 18,
-      in_progress: 24,
-      completed: 45,
-      cancelled: 5,
-    },
-    alerts: [],
+  const dashboard = useQuery({
+    queryKey: ['dashboard', companyId],
+    queryFn: () => paperclip.getDashboard(companyId!),
+    enabled: !!companyId,
   });
 
-  const [mockCharts] = useState<DashboardCharts>({
-    expense_by_category: [
-      { category: 'Marketing', amount: 4500000 },
-      { category: 'Operations', amount: 6200000 },
-      { category: 'Payroll', amount: 3000000 },
-      { category: 'Other', amount: 2050000 },
-    ],
-    task_status: [
-      { status: 'Completed', count: 45 },
-      { status: 'In Progress', count: 24 },
-      { status: 'To Do', count: 18 },
-      { status: 'Cancelled', count: 5 },
-    ],
-    recent_activities: [
-      {
-        id: '1',
-        type: 'task',
-        description: 'Tạo công việc mới: Phân tích dữ liệu thị trường',
-        timestamp: new Date(Date.now() - 300000).toISOString(),
-      },
-      {
-        id: '2',
-        type: 'expense',
-        description: 'Thêm chi phí: Quảng cáo Facebook - 1.5M đ',
-        timestamp: new Date(Date.now() - 1800000).toISOString(),
-      },
-      {
-        id: '3',
-        type: 'lead',
-        description: 'Khách hàng mới từ nguồn: Yêu cầu giá',
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-      },
-      {
-        id: '4',
-        type: 'agent',
-        description: 'Agent phân tích dữ liệu hoàn thành 3 công việc',
-        timestamp: new Date(Date.now() - 5400000).toISOString(),
-      },
-    ],
-  });
+  if (!companyId) {
+    return (
+      <EmptyState
+        icon={LayoutDashboard}
+        title="Chưa có company"
+        description="Tạo company trong Paperclip rồi quay lại đây."
+      />
+    );
+  }
 
-  useEffect(() => {
-    setPageTitle('Bảng điều khiển');
-  }, [setPageTitle]);
-
-  const COLORS = ['#0ea5e9', '#22c55e', '#eab308', '#f97316'];
-  const totalExpenseAmount = mockCharts.expense_by_category.reduce((sum, item) => sum + item.amount, 0);
+  const d = dashboard.data;
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <KPICard icon={<span className="text-2xl">📋</span>} title="Công việc mở" value={mockSummary.taskCount} trend={12} />
-        <KPICard icon={<span className="text-2xl">💸</span>} title="Tổng chi phí" value={formatCurrency(totalExpenseAmount)} trend={-8} />
-        <KPICard icon={<span className="text-2xl">👥</span>} title="Khách hàng" value={mockSummary.clientCount} trend={25} />
-        <KPICard icon={<span className="text-2xl">🤖</span>} title="Agent online" value={5} />
-        <KPICard icon={<span className="text-2xl">❓</span>} title="Chờ làm rõ" value={3} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Snapshot từ Paperclip — agents, tasks, costs, budgets."
+      />
+      <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader>
-            <CardTitle>Chi phí theo danh mục</CardTitle>
+            <CardTitle>Agents</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={mockCharts.expense_by_category}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ category, percent }) => `${category} ${((percent || 0) * 100).toFixed(0)}%`}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="amount"
-                >
-                  {mockCharts.expense_by_category.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => formatCurrency(value as number)} />
-              </PieChart>
-            </ResponsiveContainer>
+            <dl className="space-y-1 text-sm text-slate-700">
+              <Row label="active" value={d?.agents.active} />
+              <Row label="running" value={d?.agents.running} />
+              <Row label="paused" value={d?.agents.paused} />
+              <Row label="error" value={d?.agents.error} />
+            </dl>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader>
-            <CardTitle>Trạng thái công việc</CardTitle>
+            <CardTitle>Tasks</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={mockCharts.task_status}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="status" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" fill="#0ea5e9" />
-              </BarChart>
-            </ResponsiveContainer>
+            <dl className="space-y-1 text-sm text-slate-700">
+              <Row label="open" value={d?.tasks.open} />
+              <Row label="in progress" value={d?.tasks.inProgress} />
+              <Row label="blocked" value={d?.tasks.blocked} />
+              <Row label="completed" value={d?.tasks.completed} />
+            </dl>
           </CardContent>
         </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Hoạt động gần đây</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {mockCharts.recent_activities.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="flex items-start gap-3 pb-3 border-b border-slate-200 last:border-b-0"
-                  >
-                    <div
-                      className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${
-                        activity.type === 'task'
-                          ? 'bg-blue-500'
-                          : activity.type === 'expense'
-                            ? 'bg-orange-500'
-                            : activity.type === 'lead'
-                              ? 'bg-green-500'
-                              : 'bg-purple-500'
-                      }`}
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm text-slate-900">{activity.description}</p>
-                      <p className="text-xs text-slate-500 mt-1">{formatTimeAgo(activity.timestamp)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Cần chú ý</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-700">Task todo</span>
-                  <Badge variant="warning">{mockSummary.taskCountByStatus.todo}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-700">Task in progress</span>
-                  <Badge variant="info">{mockSummary.taskCountByStatus.in_progress}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-700">Task completed</span>
-                  <Badge variant="success">{mockSummary.taskCountByStatus.completed}</Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Costs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-1 text-sm text-slate-700">
+              <Row label="month spend" value={d?.costs.monthSpend} fmt="usd" />
+              <Row label="month budget" value={d?.costs.monthBudget} fmt="usd" />
+              <Row
+                label="utilisation"
+                value={d ? `${Math.round(d.costs.utilization * 100)}%` : undefined}
+              />
+            </dl>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Budgets</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-1 text-sm text-slate-700">
+              <Row label="active incidents" value={d?.budgets.activeIncidents} />
+              <Row label="pending approvals" value={d?.budgets.pendingApprovals} />
+              <Row label="paused resources" value={d?.budgets.pausedResources} />
+            </dl>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
-};
+}
+
+function Row({
+  label,
+  value,
+  fmt,
+}: {
+  label: string;
+  value: number | string | undefined;
+  fmt?: 'usd';
+}) {
+  const display =
+    value === undefined
+      ? '—'
+      : fmt === 'usd' && typeof value === 'number'
+        ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : String(value);
+  return (
+    <div className="flex items-baseline justify-between">
+      <dt className="text-slate-500">{label}</dt>
+      <dd className="font-medium text-slate-900">{display}</dd>
+    </div>
+  );
+}
