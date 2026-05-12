@@ -1,100 +1,43 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
-import { Login } from '@/pages/Login';
-import { Dashboard } from '@/pages/Dashboard';
-import { Tasks } from '@/pages/Tasks';
-import { TaskDetail } from '@/pages/TaskDetail';
-import { Projects } from '@/pages/Projects';
-import { ProjectDetail } from '@/pages/ProjectDetail';
-import { ProjectTasks } from '@/pages/ProjectTasks';
-import { CRM } from '@/pages/CRM';
-import { Finance } from '@/pages/Finance';
-import { Agents } from '@/pages/Agents';
-import { Notebooks } from '@/pages/Notebooks';
-import { Profile } from '@/pages/Profile';
-import { Requests } from '@/pages/Requests';
+import { DashboardPage } from '@/pages/Dashboard';
+import { GoalsPage } from '@/pages/Goals';
+import { ProjectsPage } from '@/pages/Projects';
+import { ProjectDetailPage } from '@/pages/ProjectDetail';
+import { IssuesPage } from '@/pages/Issues';
+import { IssueDetailPage } from '@/pages/IssueDetail';
+import { ApprovalsPage } from '@/pages/Approvals';
+import { AgentsPage } from '@/pages/Agents';
+import { AgentDetailPage } from '@/pages/AgentDetail';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5,
-      gcTime: 1000 * 60 * 10,
+      staleTime: 30_000,
+      refetchOnWindowFocus: true,
     },
   },
 });
 
-const FullScreenLoader = () => (
-  <div className="flex items-center justify-center min-h-screen">
-    <div className="text-center">
-      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-deo-accent mb-4"></div>
-      <p className="text-slate-600">Đang tải...</p>
-    </div>
-  </div>
-);
-
-const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) return <FullScreenLoader />;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-
-  return <>{children}</>;
-};
-
-const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) return <FullScreenLoader />;
-  if (isAuthenticated) return <Navigate to="/" replace />;
-
-  return <>{children}</>;
-};
-
-const AppRoutes = () => {
-  return (
-    <Routes>
-      <Route
-        path="/login"
-        element={
-          <PublicRoute>
-            <Login />
-          </PublicRoute>
-        }
-      />
-      <Route
-        element={
-          <PrivateRoute>
-            <Layout />
-          </PrivateRoute>
-        }
-      >
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/requests" element={<Requests />} />
-        <Route path="/tasks" element={<Tasks />} />
-        <Route path="/tasks/:id" element={<TaskDetail />} />
-        <Route path="/projects" element={<Projects />} />
-        <Route path="/projects/:id" element={<ProjectDetail />} />
-        <Route path="/projects/:id/tasks" element={<ProjectTasks />} />
-        <Route path="/crm" element={<CRM />} />
-        <Route path="/finance" element={<Finance />} />
-        <Route path="/agents" element={<Agents />} />
-        <Route path="/notebooks" element={<Notebooks />} />
-        <Route path="/profile" element={<Profile />} />
-      </Route>
-    </Routes>
-  );
-};
-
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Router>
-          <AppRoutes />
-        </Router>
-      </AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/goals" element={<GoalsPage />} />
+            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/projects/:id" element={<ProjectDetailPage />} />
+            <Route path="/issues" element={<IssuesPage />} />
+            <Route path="/issues/:id" element={<IssueDetailPage />} />
+            <Route path="/approvals" element={<ApprovalsPage />} />
+            <Route path="/agents" element={<AgentsPage />} />
+            <Route path="/agents/:id" element={<AgentDetailPage />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 }

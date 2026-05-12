@@ -1,0 +1,46 @@
+{
+  "$schema": "Paperclip adapter agent config — hermes_local",
+  "comment": "Default config for agents using the Hermes Agent (Nous Research) as their executor. Paste into the Configuration tab of an agent of type hermes_local. Replace secretId placeholders with the UUID returned from POST /api/companies/:companyId/secrets. Override `model` per agent: opus for CEO, sonnet/openrouter for workers.",
+  "model": "anthropic/claude-sonnet-4-6",
+  "promptTemplate": "You are {{agent.name}}, role {{agent.role}}, in the company {{company.name}}.\nYour manager is {{agent.manager_name}}. Reports: {{agent.reports}}.\nIssue: {{issue.title}}\n{{issue.description}}\n\nWork inside {{workspace.cwd}}. Use the Paperclip MCP tools to record outputs, request approvals, and post status. When done, set the issue status appropriately and add a final summary comment.",
+  "toolset": {
+    "terminal": true,
+    "files": true,
+    "web": true,
+    "code_execution": true,
+    "mcp": true
+  },
+  "skills": {
+    "enabled": ["filesystem", "shell", "git", "web-search", "code-edit"],
+    "autoload": true
+  },
+  "memory": {
+    "persistent": true,
+    "fts_recall": true,
+    "summarize_on_close": true
+  },
+  "session": {
+    "resumable": true,
+    "checkpointFs": true
+  },
+  "env": {
+    "ANTHROPIC_API_KEY": {
+      "type": "secret_ref",
+      "secretId": "REPLACE_WITH_ANTHROPIC_SECRET_UUID",
+      "version": "latest"
+    },
+    "OPENROUTER_API_KEY": {
+      "type": "secret_ref",
+      "secretId": "REPLACE_WITH_OPENROUTER_SECRET_UUID",
+      "version": "latest"
+    },
+    "HERMES_CONFIG_DIR": "~/.hermes"
+  },
+  "hermesCommand": "hermes",
+  "timeoutSec": 600,
+  "graceSec": 30,
+  "workspaceStrategy": {
+    "type": "git_worktree",
+    "branchTemplate": "agent/{{agent.slug}}/{{issue.id}}"
+  }
+}

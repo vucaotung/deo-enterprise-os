@@ -1,0 +1,35 @@
+{
+  "$schema": "Paperclip adapter agent config — claude_local",
+  "comment": "Backup executor: agents that need direct Claude Code CLI access. Use for the CEO opus agent and coding-heavy workers. Field reference: paperclip/packages/adapters/claude-local/src/index.ts. Replace secretId with the UUID from POST /api/companies/:companyId/secrets.",
+  "command": "claude",
+  "model": "claude-sonnet-4-6",
+  "effort": "medium",
+  "dangerouslySkipPermissions": true,
+  "promptTemplate": "You are {{agent.name}} ({{agent.role}}) at {{company.name}}.\nManager: {{agent.manager_name}}. Issue: {{issue.title}}\n{{issue.description}}\n\nWork inside {{workspace.cwd}}. Commit changes on the assigned branch. When done, post a summary comment and update the issue status.",
+  "maxTurnsPerRun": 60,
+  "extraArgs": ["--output-format", "json"],
+  "env": {
+    "ANTHROPIC_API_KEY": {
+      "type": "secret_ref",
+      "secretId": "REPLACE_WITH_ANTHROPIC_SECRET_UUID",
+      "version": "latest"
+    }
+  },
+  "timeoutSec": 600,
+  "graceSec": 30,
+  "workspaceStrategy": {
+    "type": "git_worktree",
+    "branchTemplate": "agent/{{agent.slug}}/{{issue.id}}"
+  },
+  "overrides": {
+    "ceo": {
+      "model": "claude-opus-4-7",
+      "effort": "high",
+      "maxTurnsPerRun": 30
+    },
+    "worker": {
+      "model": "claude-sonnet-4-6",
+      "effort": "medium"
+    }
+  }
+}

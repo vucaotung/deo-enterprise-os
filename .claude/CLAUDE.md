@@ -1,89 +1,80 @@
-# Quy trình làm việc trong deo-enterprise-os
+# Quy trình làm việc trong deo-enterprise-os (v4 — Paperclip + Hermes)
 
-This file is loaded automatically by Claude Code CLI when the workspace is at
-the root of this repo. It encodes the discipline the team has agreed to use
-on every non-trivial task. Follow it unless the operator explicitly tells you
-otherwise.
+This file is loaded automatically by Claude Code CLI at the repo root. Follow
+it unless the operator explicitly says otherwise.
 
 ## Project context
 
-- **API:** `apps/api` — Express + pg + Redis. Worker (`apps/api/src/worker.ts`)
-  consumes `jobs:queue:<runtime_type>:<company_id>` for **vps-inline runtimes
-  only** (`internal`, `n8n`). `claude-code` and `openclaw` are listed in
-  `EXTERNAL_RUNNER_RUNTIMES` (env, default `claude-code`); the local runner
-  daemon owns those.
-- **Web:** `apps/web` — Vite + React + react-query.
-- **Schema:** `infrastructure/postgres/00*.sql` — apply in numerical order.
-  Migrations are append-only; never edit a shipped migration.
-- **Local runner:** `scripts/openclaw-claude-runner.js` (Windows daemon),
-  `start-local-runner.ps1` (starter). See `docs/LOCAL_RUNNER.md`.
-- **Auth:** `/api/agent-runner/*` uses shared `AGENT_RUNNER_TOKEN` via
-  `X-Service-Token` (or `Authorization: Bearer`). Webapp uses JWT.
+- **Lớp điều phối:** [Paperclip](https://github.com/paperclipai/paperclip)
+  được clone vào `paperclip/` bởi `scripts/bootstrap.sh` (gitignored). Chạy
+  ở `http://localhost:3100`. Sở hữu companies, org structure, goals,
+  projects, issues, approvals, agents, adapters, routines, secrets.
+  Reference: `docs/PAPERCLIP_API.md`.
+- **Lớp vận hành:** Hermes Agent (Nous Research) cài bằng
+  `scripts/install-hermes.sh`. Paperclip gọi vào qua adapter `hermes_local`.
+  Adapter phụ `claude_local` (Claude Code CLI) cho agent thiên về coding.
+- **Webapp:** `apps/web` là **Worker Console** — Vite + React + TanStack
+  Query. Gọi vào Paperclip API qua same-origin (Vite proxy dev / nginx
+  prod). KHÔNG có Express API riêng nữa.
+- **Adapters config:** `adapters/hermes-local.json`,
+  `adapters/claude-local.json` — paste vào Paperclip UI (Settings →
+  Adapters) khi cài. Secret refs dùng schema
+  `{ type: "secret_ref", secretId, version: "latest" }`.
 
 ## Phase 1 — Think before code
 
-1. **`/dev:brainstorming`** — pin scope via Socratic questions before writing
-   any plan. Stop guessing requirements; ask the operator.
-2. **`/dev:writing-plans`** — produce a plan with explicit acceptance
-   criteria and an out-of-scope list. Save under `/tmp/plans/` if it spans
-   multiple sessions.
+1. **`/dev:brainstorming`** — pin scope qua Socratic questions trước khi
+   viết plan.
+2. **`/dev:writing-plans`** — plan có acceptance criteria + out-of-scope.
+   Save vào `/tmp/plans/` nếu spans nhiều session.
 
 ## Phase 2 — Code
 
-3. **`/dev:test-driven-development`** — Red → Green → Refactor. Write the
-   failing test first, then the minimum code to pass, then clean up.
-4. **`/dev:executing-plans`** — work the plan top-to-bottom. Mark tasks
-   complete in your todo list as you finish them; don't batch.
-5. **Bash discipline:** when running shell commands repeatedly (git, npm
-   test, tsc, psql), prefer `rtk <cmd>` to filter output. RTK auto-rewrite
-   only fires inside WSL/Bash; in the Windows daemon there is no shell hook,
-   so explicit `rtk` calls are still useful but not required.
-6. **Code review graph:** before you ask for context across many files
-   ("which files touch X?"), call the MCP graph. Examples:
-   `query_graph_tool` for callers, `detect_changes_tool` for blast radius.
-   This is the cheap way to avoid grepping 27k files. If the graph looks
-   stale, ask the operator to run `code-review-graph build`.
+3. **`/dev:test-driven-development`** — Red → Green → Refactor.
+4. **`/dev:executing-plans`** — work plan top-to-bottom, mark task xong
+   ngay khi xong; không batch.
+5. **Bash discipline:** dùng `rtk <cmd>` cho command lặp (git, pnpm, tsc).
+6. **Đừng patch Paperclip upstream.** Nếu cần thay đổi logic Paperclip
+   server, mở plugin theo `paperclip/doc/plugins/PLUGIN_SPEC.md`, đừng sửa
+   trực tiếp `paperclip/` — nó sẽ bị overwrite ở lần `bootstrap.sh` tiếp
+   theo.
 
 ## Phase 3 — Debug
 
-7. **`/dev:systematic-debugging`** — write the hypothesis before changing
-   code. Reproduce → isolate → fix the root cause, not the symptom.
-8. After resolving a non-trivial issue, append the lesson to
-   `.claude/troubleshooting.md` (create if missing) so future sessions
-   don't repeat it.
+7. **`/dev:systematic-debugging`** — viết hypothesis trước khi sửa code.
+8. Sau khi resolve issue non-trivial → append vào
+   `.claude/troubleshooting.md`.
 
 ## Phase 4 — Verify & ship
 
-9. **`/dev:verification-before-completion`** — run the checklist before
-   declaring done: typecheck, build, smoke the affected endpoints, eyeball
-   the diff once more.
-10. **`/dev:requesting-code-review`** — write the PR description from the
-    plan's acceptance criteria, not the diff. Reviewers want intent, not
-    enumeration.
-11. **`/dev:finishing-a-development-branch`** — clean up dead code, drop
-    debug logs, rebase if needed.
+9. **`/dev:verification-before-completion`** — typecheck, build,
+   smoke Worker Console + Paperclip UI, eyeball diff.
+10. **`/dev:requesting-code-review`** — PR description từ acceptance
+    criteria, không phải enumeration của diff.
+11. **`/dev:finishing-a-development-branch`** — clean dead code, drop
+    debug logs.
 
 ## Local invariants — break carefully
 
-- **Never edit a shipped migration.** Add `00N_<name>.sql` instead.
-- **`agents` is platform-wide.** Don't add `company_id` to it without
-  discussing — multi-tenant isolation lives at `task_executions.task_id →
-  tasks.company_id`.
-- **Don't enqueue Redis jobs for runtimes in `EXTERNAL_RUNNER_RUNTIMES`.**
-  The local runner is the only claimant; doubling up causes the in-process
-  worker to mark jobs done with mock output before the daemon sees them.
-- **Cancel race:** `PATCH /api/agent-runner/jobs/:id/status` returns 409
-  when the job is already terminal. Don't bypass that guard from the
-  daemon — let cancels stick.
-- **`bypassPermissions` mode:** when running inside the daemon's
-  `claude.exe`, you have full access to `CLAUDE_CODE_WORKDIR_ROOT`. Don't
-  step outside (the runner enforces this) and don't `git push` or deploy
-  unless the task explicitly says so.
+- **`paperclip/` là pinned bởi `paperclip.lock`.** Đừng commit thay đổi
+  trong đó. Bump commit pin chỉ sau khi smoke test end-to-end pass.
+- **Không thêm Postgres migration vào repo này nữa.** Schema thuộc về
+  Paperclip; nếu cần thêm bảng custom thì dùng Paperclip plugin.
+- **Worker Console không lưu auth token.** Cookie session của
+  Paperclip (better-auth) chảy qua Vite proxy / reverse proxy.
+- **Mutations trong issue runs cần header `X-Paperclip-Run-Id`.** Worker
+  Console (human actor) chỉ set khi proxying thay agent.
+- **Issue lifecycle:** dùng `POST /api/issues/:id/checkout` thay vì
+  `PATCH … {status: in_progress}` — direct PATCH bị race.
+- **`@mention agent-name` trong comment tự động wake agent.** Đây là
+  primary handoff signal, không cần endpoint phụ.
+- **`adapters/*.json` là config tham chiếu**, không phải thứ Paperclip
+  đọc trực tiếp — phải paste qua UI hoặc dùng `POST /api/adapters/install`.
+- **Hermes daemon chạy local.** Nếu Paperclip không tìm thấy `hermes`
+  command thì check PATH (cài qua `~/.hermes/bin`).
 
 ## Conventions
 
-- Vietnamese is fine for prose; code identifiers, commits, and PR titles
-  stay English.
-- Commits follow the existing style: `type(scope): summary` (e.g.
-  `fix(agent-runner): cancel race guard`).
-- Keep PRs small and focused. Three concerns → three PRs.
+- Vietnamese OK cho prose; code identifier, commit, PR title vẫn English.
+- Commit format: `type(scope): summary`.
+- PR nhỏ, focused. Ba concern → ba PR.
