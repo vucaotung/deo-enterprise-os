@@ -19,10 +19,10 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
-( cd paperclip && pnpm dev ) &
+( cd paperclip && PAPERCLIP_LISTEN_HOST=0.0.0.0 pnpm dev ) &
 PC_PID=$!
 
-( cd apps/web && npm run dev ) &
+( cd apps/web && npm run dev -- --host 0.0.0.0 ) &
 UI_PID=$!
 
 wait
