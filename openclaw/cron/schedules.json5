@@ -1,0 +1,132 @@
+// GoClaw Cron Schedules — Dẹo Enterprise OS
+// Timezone mặc định: Asia/Ho_Chi_Minh (UTC+7)
+// Format: standard cron expression "min hour day month weekday"
+// Weekdays: 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+
+[
+  // ─── DAILY ───────────────────────────────────────────────────────────────
+
+  {
+    // Morning briefing — Thứ Hai đến Thứ Sáu lúc 8:00 AM
+    "name": "morning-briefing",
+    "schedule": "0 8 * * 1-5",
+    "agent": "enterprise-assistant",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "message": "Morning briefing: Kiểm tra tasks overdue, meetings hôm nay nếu có, deals cần follow-up, items cần quyết định. Ngắn gọn — chỉ top 5 priorities quan trọng nhất. Gửi về Telegram.",
+    "max_retries": 2,
+    "retry_base_delay": "2s",
+    "retry_max_delay": "30s"
+  },
+
+  {
+    // Daily reflection — Thứ Hai đến Thứ Sáu lúc 9:00 PM
+    "name": "daily-reflection",
+    "schedule": "0 21 * * 1-5",
+    "agent": "dream-agent",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "message": "Daily reflection: Review ngày hôm nay. Tasks nào overdue? Blockers nào chưa được escalate? Deals nào cần follow-up? Có gì đáng chú ý không? Nếu có điểm quan trọng, gửi digest ngắn về Telegram. Nếu không có gì đặc biệt, ghi vào memory thôi.",
+    "max_retries": 2
+  },
+
+  {
+    // Attendance check-in reminder — Weekdays 8:30 AM
+    // Chỉ bật khi Phase 5 (Attendance module) live
+    "name": "attendance-checkin-reminder",
+    "schedule": "30 8 * * 1-5",
+    "agent": "attendance-agent",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "message": "Kiểm tra ai chưa check-in hôm nay. Nếu có, gửi nhắc nhở cá nhân.",
+    "enabled": false,  // Bật khi Phase 5 live
+    "max_retries": 1
+  },
+
+  {
+    // Attendance check-out reminder — Weekdays 5:30 PM
+    "name": "attendance-checkout-reminder",
+    "schedule": "30 17 * * 1-5",
+    "agent": "attendance-agent",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "message": "Kiểm tra ai chưa check-out hôm nay. Nếu có, gửi nhắc nhở.",
+    "enabled": false,  // Bật khi Phase 5 live
+    "max_retries": 1
+  },
+
+  {
+    // CRM follow-up check — Weekdays 9:00 AM
+    "name": "crm-followup-reminder",
+    "schedule": "0 9 * * 1-5",
+    "agent": "crm-agent",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "message": "Kiểm tra deals cần follow-up hôm nay. Nếu có, gửi reminder về Telegram với tên deal và action cần làm.",
+    "enabled": false,  // Bật khi Phase 4 live
+    "max_retries": 2
+  },
+
+  // ─── WEEKLY ──────────────────────────────────────────────────────────────
+
+  {
+    // Weekly synthesis — Thứ Hai 8:30 AM (sau morning briefing)
+    "name": "weekly-synthesis",
+    "schedule": "30 8 * * 1",
+    "agent": "dream-agent",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "message": "Weekly synthesis: Tổng hợp tuần vừa qua (Thứ Hai đến Thứ Sáu). Highlights: tasks completed, projects moved, wins. Risks: blockers, overdue, unresolved items. Priorities cho tuần mới: top 3-5 việc cần focus. Gửi summary về Telegram.",
+    "max_retries": 2
+  },
+
+  {
+    // Weekly finance digest — Thứ Sáu 6:00 PM
+    "name": "weekly-finance-digest",
+    "schedule": "0 18 * * 5",
+    "agent": "finance-agent",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "message": "Weekly finance digest: Tổng chi phí tuần này theo category. So với tuần trước. Có khoản nào bất thường không? Gửi summary ngắn về Telegram.",
+    "enabled": false,  // Bật khi Phase 6 live
+    "max_retries": 2
+  },
+
+  {
+    // Weekly project report — Thứ Sáu 5:00 PM
+    "name": "weekly-project-report",
+    "schedule": "0 17 * * 5",
+    "agent": "report-agent",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "message": "Tạo weekly project status report: tất cả active projects, task completion rate, overdue items, blockers. Export ra Google Drive và gửi link về Telegram.",
+    "enabled": false,  // Bật khi Phase 2 live
+    "max_retries": 2
+  },
+
+  // ─── MONTHLY ─────────────────────────────────────────────────────────────
+
+  {
+    // Monthly summary — Ngày 1 hàng tháng lúc 8:00 AM
+    "name": "monthly-summary",
+    "schedule": "0 8 1 * *",
+    "agent": "dream-agent",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "message": "Monthly synthesis: Nhìn lại tháng vừa qua. Projects completed/in-progress/blocked. Key decisions made. Finance summary (Phase 6+). Wins và lessons learned. Priorities cho tháng mới. Gửi summary đầy đủ về Telegram và export ra Drive nếu có thể.",
+    "max_retries": 3
+  },
+
+  {
+    // Monthly attendance report — Ngày 1 hàng tháng lúc 9:00 AM
+    "name": "monthly-attendance-report",
+    "schedule": "0 9 1 * *",
+    "agent": "attendance-agent",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "message": "Tạo monthly attendance report: ngày công của từng nhân viên, đi muộn, về sớm, nghỉ phép. Export ra Drive.",
+    "enabled": false,  // Bật khi Phase 5 live
+    "max_retries": 2
+  },
+
+  {
+    // Monthly finance summary — Ngày 1 hàng tháng lúc 9:00 AM
+    "name": "monthly-finance-summary",
+    "schedule": "0 9 1 * *",
+    "agent": "finance-agent",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "message": "Monthly finance summary: tổng chi phí tháng vừa qua theo category và project. So sánh với tháng trước. Highlight bất thường. Export ra Drive.",
+    "enabled": false,  // Bật khi Phase 6 live
+    "max_retries": 2
+  }
+]
